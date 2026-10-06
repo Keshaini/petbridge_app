@@ -16,7 +16,7 @@ Output: `build/app/outputs/flutter-apk/app-release.apk`
 ## Team & Workload
 | Member | Screens |
 |---|---|
-| [Name A] | Splash, Onboarding, Login, Sign Up, Forgot Password, OTP, Home/Map |
-| [Name B — Keshaini] | Create Report, Duplicate Warning Modal, Report Detail, Edit Report, Delete Confirmation |
-| [Name C] | My Reports, Search/Filter, Notifications, Empty State |
-| [Name D] | Shelter Dashboard, Report Detail (Shelter), Settings, Profile, Edit Profile, Chat |
+| Binthuran | Splash, Onboarding, Login, Sign Up, Forgot Password, OTP, Home/Map |
+| Keshaini | Create Report, Duplicate Warning Modal, Report Detail, Edit Report, Delete Confirmation |
+| Ashfaq | My Reports, Search/Filter, Notifications, Empty State |
+| Safa | Shelter Dashboard, Report Detail (Shelter), Settings, Profile, Edit Profile, Chat |
