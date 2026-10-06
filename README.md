@@ -6,7 +6,7 @@ Flutter, Firebase (Firestore, Auth, Storage), Google Maps Flutter Plugin
 ## Setup Instructions
 1. Clone the repo: `git clone [repo-url]`
 2. Run `flutter pub get`
-3. Add your `firebase_options.dart` (see `.env.example` / ask team for Firebase config)
+3. Add your `firebase_options.dart` 
 4. Run: `flutter run`
 
 ## Build APK
