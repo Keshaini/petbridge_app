@@ -3,6 +3,8 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/app_text_field.dart';
+import '../../services/firestore_service.dart';
+import '../../models/report_model.dart';
 import 'delete_confirmation_modal.dart';
 
 class EditReportScreen extends StatefulWidget {
@@ -15,24 +17,43 @@ class EditReportScreen extends StatefulWidget {
 }
 
 class _EditReportScreenState extends State<EditReportScreen> {
-  // TODO: replace with real data fetched from Firestore using widget.reportId
-  String? selectedType = 'Lost';
-  final List<String> reportTypes = ['Lost', 'Found', 'Injured', 'Stray'];
+  ReportModel? report;
+  bool isLoading = true;
+  bool isSaving = false;
 
-  final TextEditingController nameController =
-      TextEditingController(text: 'Rusty');
-  final TextEditingController speciesController =
-      TextEditingController(text: 'Golden Retriever · Male, Neutered');
-  final TextEditingController locationController =
-      TextEditingController(text: 'Nugegoda Junction');
-  final TextEditingController descriptionController = TextEditingController(
-    text: 'Golden coat with white chest patch. Wearing a dark leather '
-        'collar with brass bell. Very friendly, answers to Rusty. '
-        'Last seen heading towards the park trail near the junction.',
-  );
+  String? selectedType;
+  final List<String> reportTypes = ['Lost', 'Found', 'Injured', 'Stray', 'Abandoned'];
 
-  bool hasMedicalAlert = true;
-  int photoCount = 3;
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController speciesController = TextEditingController();
+  final TextEditingController locationController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+
+  bool hasMedicalAlert = false;
+  int photoCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReport();
+  }
+
+  Future<void> _loadReport() async {
+    final fetched = await FirestoreService.getReport(widget.reportId);
+    if (!mounted) return;
+
+    if (fetched != null) {
+      setState(() {
+        report = fetched;
+        selectedType = fetched.category;
+        descriptionController.text = fetched.description;
+        locationController.text = 'Nugegoda Junction'; // placeholder until map picker is wired up
+        isLoading = false;
+      });
+    } else {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -44,14 +65,13 @@ class _EditReportScreenState extends State<EditReportScreen> {
   }
 
   void _changePhoto() {
-    // TODO: open image_picker, upload to Firebase Storage once connected
+    // TODO: open image_picker, upload to Cloudinary once connected here too
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Photo picker coming soon')),
     );
   }
 
   void _addMorePhotos() {
-    // TODO: open image_picker (multi-select) once connected
     setState(() => photoCount += 1);
   }
 
@@ -63,12 +83,28 @@ class _EditReportScreenState extends State<EditReportScreen> {
   }
 
   Future<void> _saveChanges() async {
-    // TODO once Firebase is connected:
-    // Update Firestore 'reports/{reportId}' with edited fields
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Changes saved (placeholder — Firebase pending)')),
-    );
-    Navigator.of(context).pop();
+    if (report == null) return;
+    setState(() => isSaving = true);
+
+    try {
+      await FirestoreService.updateReport(widget.reportId, {
+        'category': selectedType ?? report!.category,
+        'description': descriptionController.text.trim(),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Changes saved')),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
   }
 
   Future<void> _deleteReport() async {
@@ -82,18 +118,36 @@ class _EditReportScreenState extends State<EditReportScreen> {
     );
 
     if (confirmed == true) {
-      // TODO once Firebase is connected:
-      // Delete document from Firestore 'reports/{reportId}'
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report deleted (placeholder — Firebase pending)')),
-      );
-      Navigator.of(context).pop();
+      try {
+        await FirestoreService.deleteReport(widget.reportId);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report deleted')),
+        );
+        Navigator.of(context).pop();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
+    if (report == null) {
+      return const Scaffold(
+        body: Center(child: Text('Report not found')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -117,7 +171,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header status strip
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -129,7 +182,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   const Icon(Icons.circle, size: 8, color: AppColors.statusFound),
                   const SizedBox(width: 8),
                   Text(
-                    'Case #PB-4028 · Live Case',
+                    'Case #${widget.reportId.substring(0, widget.reportId.length > 6 ? 6 : widget.reportId.length)} · ${report!.status}',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.statusFound,
                       fontWeight: FontWeight.w600,
@@ -146,7 +199,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
             const SizedBox(height: 18),
 
-            // Pet Photographs
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -164,24 +216,22 @@ class _EditReportScreenState extends State<EditReportScreen> {
                     color: AppColors.accentPeach.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Center(
-                    child: Icon(Icons.pets, size: 42, color: AppColors.primary),
-                  ),
-                ),
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Primary Portrait',
-                      style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                  ),
+                  child: report!.photoUrl.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            report!.photoUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: 170,
+                            errorBuilder: (context, error, stackTrace) => const Center(
+                              child: Icon(Icons.pets, size: 42, color: AppColors.primary),
+                            ),
+                          ),
+                        )
+                      : const Center(
+                          child: Icon(Icons.pets, size: 42, color: AppColors.primary),
+                        ),
                 ),
                 Positioned(
                   bottom: 10,
@@ -210,16 +260,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
             const SizedBox(height: 10),
             Row(
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppColors.accentPeach.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.pets, size: 20, color: AppColors.primary),
-                ),
-                const SizedBox(width: 10),
                 GestureDetector(
                   onTap: _addMorePhotos,
                   child: Container(
@@ -233,12 +273,11 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('Add more photos (+2)', style: AppTextStyles.caption),
+                const Text('Add more photos', style: AppTextStyles.caption),
               ],
             ),
             const SizedBox(height: 22),
 
-            // Report Type / Status
             Text('Report Type / Status *', style: AppTextStyles.heading2),
             const SizedBox(height: 10),
             Wrap(
@@ -265,7 +304,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Pet Name
             Text('Pet Name', style: AppTextStyles.heading2),
             const SizedBox(height: 10),
             AppTextField(
@@ -275,7 +313,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
             const SizedBox(height: 18),
 
-            // Species, Breed & Vital Status
             Text('Species, Breed & Vital Status', style: AppTextStyles.heading2),
             const SizedBox(height: 10),
             AppTextField(
@@ -285,7 +322,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
             const SizedBox(height: 18),
 
-            // Last Seen Location
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -317,7 +353,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
                     border: Border.all(color: AppColors.border),
                   ),
                   child: const Center(
-                    // TODO: replace with google_maps_flutter view
                     child: Icon(Icons.map_outlined, size: 32, color: AppColors.textSecondary),
                   ),
                 ),
@@ -343,7 +378,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
             const SizedBox(height: 18),
 
-            // Description
             Text('Pet Description & Distinct Marks', style: AppTextStyles.heading2),
             const SizedBox(height: 10),
             TextField(
@@ -358,55 +392,12 @@ class _EditReportScreenState extends State<EditReportScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                '${descriptionController.text.length} / 500',
-                style: AppTextStyles.caption,
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // Special Care / Medical Alert
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.statusInjured.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.local_hospital_outlined, color: AppColors.statusInjured),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Special Care & Medical Alert',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Needs daily meds (Carinsulin) · Visible on public emergency card',
-                          style: AppTextStyles.caption,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 18, color: AppColors.textSecondary),
-                    onPressed: () {
-                      // TODO: open a medical alert edit field
-                    },
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 24),
 
-            PrimaryButton(label: 'Save Changes', onPressed: _saveChanges),
+            PrimaryButton(
+              label: isSaving ? 'Saving...' : 'Save Changes',
+              onPressed: isSaving ? () {} : _saveChanges,
+            ),
             const SizedBox(height: 10),
             Center(
               child: TextButton(
