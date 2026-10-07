@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,7 +19,7 @@ class CreateReportScreen extends StatefulWidget {
 
 class _CreateReportScreenState extends State<CreateReportScreen> {
   String? selectedCategory;
-  File? selectedImage;
+  XFile? selectedImage;
   String? uploadedPhotoUrl;
   bool isUploadingPhoto = false;
   bool isSubmitting = false;
@@ -50,8 +49,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     if (pickedFile == null) return;
 
     setState(() {
-      selectedImage = File(pickedFile.path);
+      selectedImage = pickedFile;
       isUploadingPhoto = true;
+      uploadedPhotoUrl = null;
     });
 
     final url = await CloudinaryService.uploadImage(selectedImage!);
@@ -78,7 +78,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   }
 
   Future<void> _onContinue() async {
-    if (selectedCategory == null || selectedImage == null) {
+    if (selectedCategory == null || uploadedPhotoUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please add a photo and select a category.'),
@@ -198,14 +198,19 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: selectedImage != null && !isUploadingPhoto
+                        child: (uploadedPhotoUrl != null && !isUploadingPhoto)
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
-                                child: Image.file(
-                                  selectedImage!,
-                                  fit: BoxFit.cover,
+                                child: Image.network(
+                                  uploadedPhotoUrl!,
+                                  fit: BoxFit.contain,
                                   width: double.infinity,
                                   height: 160,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Center(
+                                    child: Icon(Icons.broken_image_outlined,
+                                        color: AppColors.textSecondary),
+                                  ),
                                 ),
                               )
                             : Center(
