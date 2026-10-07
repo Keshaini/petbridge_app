@@ -4,7 +4,7 @@
 - **Frontend:** Flutter
 - **Backend:** Firebase (Firestore, Authentication)
 - **Image Hosting:** Cloudinary (unsigned upload preset) — used instead of Firebase Storage, which requires upgrading to the Blaze billing plan
-- **Maps/Location:** Google Maps Flutter Plugin (pending integration — currently stubbed)
+- **Maps/Location:** Google Maps Flutter Plugin
 
 ## Setup Instructions
 1. Clone the repo: `git clone https://github.com/Keshaini/petbridge_app.git`
@@ -28,10 +28,10 @@ Output: `build/app/outputs/flutter-apk/app-release.apk`
 
 | Member | Screens | Status |
 |---|---|---|
-| Binthuran | Splash, Onboarding, Login, Sign Up, Forgot Password, OTP, Home/Map | In progress |
+| Binthuran | Splash, Onboarding, Login, Sign Up, Forgot Password, OTP, Home/Map |
 | Keshaini | Create Report, Duplicate Warning Modal, Report Detail, Edit Report, Delete Confirmation |
-| Ashfaq | My Reports, Search/Filter, Notifications, Empty State | In progress |
-| Safa | Shelter Dashboard, Report Detail (Shelter), Settings, Profile, Edit Profile, Chat | In progress |
+| Ashfaq | My Reports, Search/Filter, Notifications, Empty State |
+| Safa | Shelter Dashboard, Report Detail (Shelter), Settings, Profile, Edit Profile, Chat |
 
 ## Shared Components
 Reusable widgets and constants are in `lib/widgets/` and `lib/constants/` — use `AppColors`, `AppTextStyles`, `PrimaryButton`, `AppTextField`, and `StatusPill` to keep visual consistency across screens rather than redefining styles.
