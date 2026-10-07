@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class CloudinaryService {
-  static const String cloudName = 'YOUR_CLOUD_NAME'; // from Cloudinary dashboard
+  static const String cloudName = 'qrezztw4'; // from Cloudinary dashboard
   static const String uploadPreset = 'petbridge_unsigned'; // from Step 2
 
   static Future<String?> uploadImage(File imageFile) async {

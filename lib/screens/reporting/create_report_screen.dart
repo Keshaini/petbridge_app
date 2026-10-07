@@ -1,9 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../widgets/primary_button.dart';
-import 'duplicate_warning_modal.dart';
 import '../../widgets/app_text_field.dart';
+import '../../services/firestore_service.dart';
+import '../../services/cloudinary_service.dart';
+import '../../models/report_model.dart';
+import 'duplicate_warning_modal.dart';
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
@@ -13,10 +19,12 @@ class CreateReportScreen extends StatefulWidget {
 }
 
 class _CreateReportScreenState extends State<CreateReportScreen> {
-  String? selectedCategory; // Lost, Found, Injured, Abandoned
-  bool photoAttached = false; // placeholder flag until Storage is wired up
+  String? selectedCategory;
+  File? selectedImage;
+  String? uploadedPhotoUrl;
+  bool isUploadingPhoto = false;
+  bool isSubmitting = false;
 
-  // Location — stubbed with a fixed placeholder until map picker is wired up
   String locationLabel = 'Nugegoda Junction';
   String locationAccuracy = 'GPS pin dropped · ±20 m accuracy';
 
@@ -32,16 +40,45 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     super.dispose();
   }
 
+  Future<void> _pickAndUploadPhoto() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+
+    if (pickedFile == null) return;
+
+    setState(() {
+      selectedImage = File(pickedFile.path);
+      isUploadingPhoto = true;
+    });
+
+    final url = await CloudinaryService.uploadImage(selectedImage!);
+
+    if (!mounted) return;
+
+    setState(() {
+      uploadedPhotoUrl = url;
+      isUploadingPhoto = false;
+    });
+
+    if (url == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo upload failed, please try again')),
+      );
+    }
+  }
+
   void _adjustPin() {
     // TODO: open google_maps_flutter picker once wired up.
-    // For now, this is a visual placeholder action only.
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Map picker coming soon')),
     );
   }
 
   Future<void> _onContinue() async {
-    if (selectedCategory == null || !photoAttached) {
+    if (selectedCategory == null || selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please add a photo and select a category.'),
@@ -51,33 +88,59 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       return;
     }
 
-    // Duplicate check — stubbed for now, will query Firestore once connected
-    final bool? isDuplicate = await showDialog<bool>(
-      context: context,
-      builder: (context) => const DuplicateWarningModal(
-        existingReportSummary: 'A report matching this animal was submitted '
-            '0.2 km away 40 minutes ago.',
-      ),
-    );
+    setState(() => isSubmitting = true);
 
-    // isDuplicate == true  -> same animal confirmed, cancel new report
-    // isDuplicate == false -> different animal confirmed, proceed
-    // isDuplicate == null  -> dismissed without choice, treat as cancel
-    if (isDuplicate == null || isDuplicate == true) {
-      return;
-    }
-
-    // TODO once Firebase is connected:
-    // 1. Upload photo to Firebase Storage -> get photoUrl
-    // 2. Create ReportModel with form data (category, location, description)
-    // 3. Write to Firestore 'reports' collection
-    // 4. Navigate to confirmation / back to Home
+    final existingReport =
+        await FirestoreService.checkForDuplicate(selectedCategory!);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Report submitted (placeholder — Firebase pending)')),
+
+    if (existingReport != null) {
+      final bool? isDuplicate = await showDialog<bool>(
+        context: context,
+        builder: (context) => DuplicateWarningModal(
+          existingReportSummary:
+              'A report matching this animal was submitted recently nearby.',
+          existingReportPhotoUrl: existingReport.photoUrl.isNotEmpty
+              ? existingReport.photoUrl
+              : null,
+        ),
+      );
+
+      if (isDuplicate == null || isDuplicate == true) {
+        setState(() => isSubmitting = false);
+        return;
+      }
+    }
+
+    final newReport = ReportModel(
+      reportId: '',
+      ownerUid: 'placeholder-uid', // TODO: replace with real auth UID once Auth is wired up
+      category: selectedCategory!,
+      photoUrl: uploadedPhotoUrl ?? '',
+      location: const GeoPoint(6.8649, 79.8997), // placeholder coords
+      locationRadius: 0.5,
+      description: descriptionController.text.trim(),
+      status: 'Active',
+      timestamp: DateTime.now(),
     );
-    Navigator.of(context).pop();
+
+    try {
+      await FirestoreService.createReport(newReport.toMap());
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report submitted successfully')),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit report: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
+    }
   }
 
   @override
@@ -99,7 +162,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Progress bar — decorative, matches the high-fidelity screen
             Container(
               height: 4,
               decoration: BoxDecoration(
@@ -126,53 +188,58 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Photo upload box
                     GestureDetector(
-                      onTap: () {
-                        // Placeholder until image_picker + Storage is wired up
-                        setState(() => photoAttached = true);
-                      },
+                      onTap: isUploadingPhoto ? null : _pickAndUploadPhoto,
                       child: Container(
                         width: double.infinity,
                         height: 160,
                         decoration: BoxDecoration(
                           color: AppColors.accentPeach.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.border,
-                            style: BorderStyle.solid,
-                          ),
+                          border: Border.all(color: AppColors.border),
                         ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircleAvatar(
-                                radius: 22,
-                                backgroundColor: AppColors.accentPeach,
-                                child: Icon(
-                                  photoAttached ? Icons.check : Icons.camera_alt_outlined,
-                                  color: AppColors.primary,
+                        child: selectedImage != null && !isUploadingPhoto
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.file(
+                                  selectedImage!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: 160,
+                                ),
+                              )
+                            : Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (isUploadingPhoto)
+                                      const CircularProgressIndicator(
+                                          color: AppColors.primary)
+                                    else ...[
+                                      CircleAvatar(
+                                        radius: 22,
+                                        backgroundColor: AppColors.accentPeach,
+                                        child: const Icon(
+                                          Icons.camera_alt_outlined,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text('Add a clear photo',
+                                          style: AppTextStyles.heading2),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'A photo helps owners identify the pet fast',
+                                        style: AppTextStyles.caption,
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              Text(
-                                photoAttached ? 'Photo added' : 'Add a clear photo',
-                                style: AppTextStyles.heading2,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'A photo helps owners identify the pet fast',
-                                style: AppTextStyles.caption,
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Category selector
                     Text('What are you reporting?', style: AppTextStyles.heading2),
                     const SizedBox(height: 12),
                     Wrap(
@@ -199,7 +266,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Pet Name (optional)
                     Text('Pet Name (optional)', style: AppTextStyles.heading2),
                     const SizedBox(height: 12),
                     AppTextField(
@@ -207,8 +273,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       icon: Icons.pets_outlined,
                       controller: nameController,
                     ),
+                    const SizedBox(height: 24),
 
-                    // Location card
                     Text('Where was it seen?', style: AppTextStyles.heading2),
                     const SizedBox(height: 12),
                     Container(
@@ -234,9 +300,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(locationLabel, style: AppTextStyles.bodyText.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                )),
+                                Text(
+                                  locationLabel,
+                                  style: AppTextStyles.bodyText
+                                      .copyWith(fontWeight: FontWeight.w600),
+                                ),
                                 const SizedBox(height: 2),
                                 Text(locationAccuracy, style: AppTextStyles.caption),
                                 const SizedBox(height: 8),
@@ -244,7 +312,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                   onTap: _adjustPin,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6,
+                                      horizontal: 12,
+                                      vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
                                       color: AppColors.accentPeach,
@@ -268,7 +337,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Description
                     Text('Description (optional)', style: AppTextStyles.heading2),
                     const SizedBox(height: 12),
                     TextField(
@@ -290,7 +358,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               ),
             ),
 
-            PrimaryButton(label: 'Continue', onPressed: _onContinue),
+            PrimaryButton(
+              label: isSubmitting ? 'Submitting...' : 'Continue',
+              onPressed: isSubmitting ? () {} : _onContinue,
+            ),
           ],
         ),
       ),
