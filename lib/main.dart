@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+
 import 'firebase_options.dart';
 import 'constants/app_colors.dart';
-import 'screens/reporting/create_report_screen.dart';
+import 'screens/reporting/my_reports_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const PetBridgeApp());
 }
 
@@ -25,7 +24,7 @@ class PetBridgeApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         useMaterial3: true,
       ),
-      home: const CreateReportScreen(),
+      home: const MyReportsScreen(),
     );
   }
 }
