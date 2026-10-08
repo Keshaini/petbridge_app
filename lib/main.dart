@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
-import 'map_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+
 import 'firebase_options.dart';
 import 'constants/app_colors.dart';
-import 'screens/reporting/create_report_screen.dart';
-import 'splash_screen.dart';
-import 'login_screen.dart';
-import 'signup_screen.dart';
+import 'navigation/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(const PetBridgeApp());
 }
 
@@ -21,15 +20,19 @@ class PetBridgeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'PetBridge',
       debugShowCheckedModeBanner: false,
+
       theme: ThemeData(
         scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+        ),
         useMaterial3: true,
       ),
-      home: const LoginScreen(), // <-- Change this line to MapScreen()
+
+      routerConfig: appRouter,
     );
   }
 }
