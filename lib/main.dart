@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'map_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'constants/app_colors.dart';
 import 'screens/reporting/create_report_screen.dart';
+import 'splash_screen.dart';
+import 'login_screen.dart';
+import 'signup_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +29,7 @@ class PetBridgeApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         useMaterial3: true,
       ),
-      home: const CreateReportScreen(),
+      home: const LoginScreen(), // <-- Change this line to MapScreen()
     );
   }
 }
