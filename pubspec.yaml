@@ -21,8 +21,10 @@ dependencies:
   http: ^1.2.0
 
   # Maps & Location
-  google_maps_flutter: ^2.9.0
+  google_maps_flutter: ^2.18.2
   geolocator: ^13.0.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
   # Image handling
   image_picker: ^1.1.2
