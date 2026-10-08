@@ -116,6 +116,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     final newReport = ReportModel(
       reportId: '',
       ownerUid: 'placeholder-uid', // TODO: replace with real auth UID once Auth is wired up
+      petName: nameController.text.trim(),
       category: selectedCategory!,
       photoUrl: uploadedPhotoUrl ?? '',
       location: const GeoPoint(6.8649, 79.8997), // placeholder coords

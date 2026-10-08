@@ -30,6 +30,20 @@ class FirestoreService {
             .toList());
   }
 
+  static Stream<List<ReportModel>> getReportsForOwner(String ownerUid) {
+    return _reportsRef
+        .where('ownerUid', isEqualTo: ownerUid)
+        .snapshots()
+        .map((snapshot) {
+      final reports = snapshot.docs
+          .map((doc) =>
+              ReportModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+      reports.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return reports;
+    });
+  }
+
   // UPDATE — e.g. mark as resolved, or edit fields
   static Future<void> updateReport(
       String reportId, Map<String, dynamic> updatedFields) async {
