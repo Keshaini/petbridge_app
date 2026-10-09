@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,6 +22,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   bool isLoading = true;
   bool isSaved = false;
   bool isUpdating = false;
+  String? loadError;
 
   @override
   void initState() {
@@ -29,18 +31,36 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Future<void> _loadReport() async {
-    final fetched = await FirestoreService.getReport(widget.reportId);
+    try {
+      final fetched = await FirestoreService.getReport(widget.reportId);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      report = fetched;
-      isLoading = false;
-    });
+      setState(() {
+        report = fetched;
+        isLoading = false;
+        loadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+        loadError = 'Unable to load this report. Please try again.';
+      });
+    }
+  }
+
+  void _goBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
   }
 
   Future<void> _markAsResolved() async {
-    if (report == null) return;
+    if (report == null || isUpdating) return;
 
     setState(() => isUpdating = true);
 
@@ -68,17 +88,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Marked as resolved'),
-        ),
+        const SnackBar(content: Text('Marked as resolved')),
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update: $e'),
-        ),
+        SnackBar(content: Text('Failed to update: $e')),
       );
     } finally {
       if (mounted) {
@@ -88,7 +104,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   void _messageReporter() {
-    // TODO: navigate to chat screen with a thread tied to this report's reporter
+    // TODO: Navigate to a chat thread linked to this report's reporter.
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Opening chat (coming soon)'),
@@ -108,15 +124,68 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
     }
 
-    if (report == null) {
-      return const Scaffold(
+    if (loadError != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _goBack,
+          ),
+        ),
         body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  loadError!,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      isLoading = true;
+                      loadError = null;
+                    });
+                    _loadReport();
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (report == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _goBack,
+          ),
+        ),
+        body: const Center(
           child: Text('Report not found'),
         ),
       );
     }
 
-    final bool isResolved = report!.status == 'Resolved';
+    final currentReport = report!;
+    final bool isResolved = currentReport.status == 'Resolved';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -128,7 +197,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             Icons.arrow_back,
             color: AppColors.textPrimary,
           ),
-          onPressed: () => context.pop(),
+          onPressed: _goBack,
         ),
         actions: [
           IconButton(
@@ -154,19 +223,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 color: AppColors.accentPeach.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: report!.photoUrl.isNotEmpty
+              child: currentReport.photoUrl.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(18),
                       child: Image.network(
-                        report!.photoUrl,
+                        currentReport.photoUrl,
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: 200,
-                        errorBuilder: (
-                          context,
-                          error,
-                          stackTrace,
-                        ) {
+                        errorBuilder: (context, error, stackTrace) {
                           return const Center(
                             child: Icon(
                               Icons.pets,
@@ -186,76 +251,52 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     ),
             ),
             const SizedBox(height: 16),
-
-            Text(
-              'Report',
-              style: AppTextStyles.heading1,
-            ),
+            Text('Report', style: AppTextStyles.heading1),
             const SizedBox(height: 8),
-
             StatusPill(
-              label: isResolved ? 'RESOLVED' : report!.category,
+              label: isResolved ? 'RESOLVED' : currentReport.category,
             ),
             const SizedBox(height: 20),
-
             Row(
               children: [
                 Expanded(
-                  child: _infoCard(
-                    'STATUS',
-                    report!.status,
-                  ),
+                  child: _infoCard('STATUS', currentReport.status),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _infoCard(
-                    'CATEGORY',
-                    report!.category,
-                  ),
+                  child: _infoCard('CATEGORY', currentReport.category),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _infoCard(
                     'REPORTED',
-                    _timeAgo(report!.timestamp),
+                    _timeAgo(currentReport.timestamp),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-
-            Text(
-              'Description',
-              style: AppTextStyles.heading2,
-            ),
+            Text('Description', style: AppTextStyles.heading2),
             const SizedBox(height: 10),
-
             Text(
-              report!.description.isEmpty
+              currentReport.description.isEmpty
                   ? 'No description provided.'
-                  : report!.description,
+                  : currentReport.description,
               style: AppTextStyles.bodyText,
             ),
             const SizedBox(height: 24),
-
-            Text(
-              'Sighting area',
-              style: AppTextStyles.heading2,
-            ),
+            Text('Sighting area', style: AppTextStyles.heading2),
             const SizedBox(height: 12),
-
             Container(
               width: double.infinity,
               height: 140,
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.border,
-                ),
+                border: Border.all(color: AppColors.border),
               ),
               child: const Center(
-                // TODO: replace with google_maps_flutter radius view
+                // TODO: Replace with a Google Maps radius view.
                 child: Icon(
                   Icons.map_outlined,
                   size: 40,
@@ -264,19 +305,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _messageReporter,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: AppColors.border,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                      ),
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -291,7 +327,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: ElevatedButton(
                     onPressed: (isResolved || isUpdating)
@@ -299,9 +334,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         : _markAsResolved,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -309,9 +342,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     child: Text(
                       isUpdating
                           ? 'Updating...'
-                          : (isResolved
-                              ? 'Resolved'
-                              : 'Mark as resolved'),
+                          : (isResolved ? 'Resolved' : 'Mark as resolved'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -330,23 +361,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Widget _infoCard(String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: 8,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [
-          Text(
-            label,
-            style: AppTextStyles.caption,
-          ),
+          Text(label, style: AppTextStyles.caption),
           const SizedBox(height: 4),
           Text(
             value,

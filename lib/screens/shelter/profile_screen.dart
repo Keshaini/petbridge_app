@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -24,12 +25,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
             // ================================================================
 
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                18,
-                12,
-                18,
-                110,
-              ),
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 110),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -44,7 +40,11 @@ class UserProfileOverviewScreen extends StatelessWidget {
                       InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () {
-                          context.pop();
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go('/home');
+                          }
                         },
                         child: Container(
                           width: 40,
@@ -70,10 +70,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                         ),
                       ),
 
-                      // ======================================================
-                      // EDIT PROFILE BUTTON
-                      // ======================================================
-
+                      // Edit profile button
                       InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () {
@@ -107,10 +104,6 @@ class UserProfileOverviewScreen extends StatelessWidget {
                       children: [
                         Stack(
                           children: [
-                            // ==================================================
-                            // YOUR PROFILE PHOTO
-                            // ==================================================
-
                             Container(
                               width: 92,
                               height: 92,
@@ -134,8 +127,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                                   width: 92,
                                   height: 92,
                                   fit: BoxFit.cover,
-                                  errorBuilder:
-                                      (context, error, stackTrace) {
+                                  errorBuilder: (context, error, stackTrace) {
                                     return Container(
                                       color: const Color(0xFFFCEFE7),
                                       child: const Icon(
@@ -171,10 +163,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                         const SizedBox(height: 10),
 
-                        // ======================================================
-                        // NAME + VERIFIED BADGE
-                        // ======================================================
-
+                        // Name + verified badge
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -186,9 +175,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                                 color: Color(0xFF2C2420),
                               ),
                             ),
-
                             const SizedBox(width: 6),
-
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -269,8 +256,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                             const Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'Neighborhood Hero · Lvl 3',
@@ -441,10 +427,6 @@ class UserProfileOverviewScreen extends StatelessWidget {
                           indent: 56,
                           color: Color(0xFFF3ECE6),
                         ),
-
-                        // ====================================================
-                        // EDIT PROFILE ROW
-                        // ====================================================
 
                         _buildSettingsRow(
                           icon: Icons.person_outline_rounded,
@@ -737,6 +719,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
   // ========================================================================
   // SETTINGS ROW
+  // FIX: Wrap ListTile in Material to handle ink effects correctly.
   // ========================================================================
 
   static Widget _buildSettingsRow({
@@ -748,82 +731,78 @@ class UserProfileOverviewScreen extends StatelessWidget {
     bool hasDot = false,
     VoidCallback? onTap,
   }) {
-    return ListTile(
-      onTap: onTap,
-
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFBECE2),
-          borderRadius: BorderRadius.circular(10),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFBECE2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: const Color(0xFF8A5332),
+          ),
         ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: const Color(0xFF8A5332),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF2C2420),
+          ),
         ),
-      ),
-
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13.5,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF2C2420),
-        ),
-      ),
-
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (subtitle != null)
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF8A7D75),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-
-          if (hasDot)
-            Container(
-              width: 7,
-              height: 7,
-              decoration: const BoxDecoration(
-                color: Color(0xFF6F3F24),
-                shape: BoxShape.circle,
-              ),
-            ),
-
-          if (badge != null)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 3,
-              ),
-              decoration: BoxDecoration(
-                color: badgeBg ?? const Color(0xFFFEEDDE),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                badge,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (subtitle != null)
+              Text(
+                subtitle,
                 style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF5A311A),
+                  fontSize: 12,
+                  color: Color(0xFF8A7D75),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+            if (hasDot)
+              Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF6F3F24),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            if (badge != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: badgeBg ?? const Color(0xFFFEEDDE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF5A311A),
+                  ),
+                ),
+              ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 13,
+              color: Color(0xFFB0A299),
             ),
-
-          const SizedBox(width: 6),
-
-          const Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 13,
-            color: Color(0xFFB0A299),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
