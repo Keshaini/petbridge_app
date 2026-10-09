@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../services/auth_service.dart';
 
@@ -167,13 +168,23 @@ class UserProfileOverviewScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              'Safa',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF2C2420),
-                              ),
+                            FutureBuilder<DocumentSnapshot>(
+                              future: FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(AuthService.currentUid)
+                                .get(),
+                              builder: (context, snap) {
+                                final data = snap.data?.data() as Map<String, dynamic>?;
+                                final name = (data?['name'] as String?) ?? 'PetBridge user';
+                                return Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF2C2420),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(width: 6),
                             Container(
