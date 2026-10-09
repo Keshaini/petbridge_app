@@ -52,6 +52,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
   bool _isLocating = false;
   bool _isSearching = false;
   bool _isResolvingAddress = false;
+  bool _filtersApplied = false;
 
   // Prevents an older address lookup from overwriting a newer selection.
   int _addressRequestId = 0;
@@ -114,6 +115,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     setState(() {
       _showFilters = false;
       _filteredReports = reports;
+      _filtersApplied = true;
     });
 
     ScaffoldMessenger.of(context)
@@ -182,7 +184,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
       final speciesMatches = _species == null ||
           _species!.isEmpty ||
-          report.petName.toLowerCase().contains(
+          report.animalType.toLowerCase().contains(
                 _species!.toLowerCase(),
               );
 
@@ -348,6 +350,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
       _showLocationPicker = false;
       _showFilters = false;
       _filteredReports = const [];
+      _filtersApplied = false;
     });
 
     try {
@@ -468,6 +471,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
       _showFilters =
           !widget.selectionMode && _selectedLocation != null;
       _filteredReports = const [];
+      _filtersApplied = false;
     });
   }
 
@@ -505,6 +509,13 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
             : FirestoreService.getActiveReports(),
         builder: (context, snapshot) {
           _latestReports = snapshot.data ?? const [];
+          if (_filtersApplied &&
+              _selectedLocation != null &&
+              !_showFilters &&
+              !_showLocationPicker) {
+            _filteredReports =
+                _reportsForSelectedFilters(_latestReports);
+          }
 
           return Stack(
             children: [

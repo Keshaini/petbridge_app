@@ -20,14 +20,18 @@ class FirestoreService {
 
   // READ — all active reports (for Home/Map feed)
   static Stream<List<ReportModel>> getActiveReports() {
-    return _reportsRef
-        .where('status', isEqualTo: 'Active')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) =>
-                ReportModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+    return _reportsRef.where('status', isEqualTo: 'Active').snapshots().map((
+      snapshot,
+    ) {
+      final reports = snapshot.docs
+          .map(
+            (doc) =>
+                ReportModel.fromMap(doc.data() as Map<String, dynamic>, doc.id),
+          )
+          .toList();
+      reports.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return reports;
+    });
   }
 
   static Stream<List<ReportModel>> getReportsForOwner(String ownerUid) {
