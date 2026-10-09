@@ -1,6 +1,5 @@
-
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -12,65 +11,8 @@ import '../../widgets/app_text_field.dart';
 import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
 import '../../models/report_model.dart';
+import '..//search/map_search_screen.dart';
 import 'duplicate_warning_modal.dart';
-
-class MapSearchScreen extends StatelessWidget {
-  const MapSearchScreen({
-    super.key,
-    this.selectionMode = false,
-    required this.initialLocation,
-    this.initialLocationLabel = 'Location',
-  });
-
-  final bool selectionMode;
-  final GeoPoint initialLocation;
-  final String initialLocationLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedLocationLabel =
-        initialLocationLabel.isNotEmpty
-            ? initialLocationLabel
-            : 'Selected map location';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select location'),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                selectedLocationLabel,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '${initialLocation.latitude.toStringAsFixed(5)}, '
-                '${initialLocation.longitude.toStringAsFixed(5)}',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop({
-                    'location': initialLocation,
-                    'label': selectedLocationLabel,
-                  });
-                },
-                child: const Text('Use this location'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
@@ -90,16 +32,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   bool isUploadingPhoto = false;
   bool isSubmitting = false;
 
-  // Initial fallback location. The user can change it
-  // using the existing OpenStreetMap picker.
   GeoPoint selectedLocation = const GeoPoint(
     6.8649,
     79.8997,
   );
 
   String locationLabel = 'Nugegoda Junction';
-  String locationAccuracy =
-      'Default location · Please verify';
+  String locationAccuracy = 'Default location · Please verify';
 
   final TextEditingController nameController =
       TextEditingController();
@@ -114,7 +53,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     'Abandoned',
   ];
 
-  // No Breed field and no Rabbit option.
   final List<String> animalTypes = [
     'Dog',
     'Cat',
@@ -130,9 +68,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   }
 
   Future<void> _pickAndUploadPhoto() async {
-    final ImagePicker picker = ImagePicker();
+    final picker = ImagePicker();
 
-    final XFile? pickedFile = await picker.pickImage(
+    final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 70,
     );
@@ -146,8 +84,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     });
 
     try {
-      final url =
-          await CloudinaryService.uploadImage(pickedFile);
+      final url = await CloudinaryService.uploadImage(pickedFile);
 
       if (!mounted) return;
 
@@ -159,9 +96,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       if (url == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Photo upload failed, please try again',
-            ),
+            content: Text('Photo upload failed, please try again.'),
           ),
         );
       }
@@ -180,7 +115,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     }
   }
 
-  // Uses the original MapSearchScreen, not GoogleMap directly.
+  /// Opens the actual OpenStreetMap picker.
   Future<void> _adjustPin() async {
     final result = await Navigator.of(context)
         .push<Map<String, dynamic>>(
@@ -202,9 +137,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     setState(() {
       selectedLocation = location;
 
-      locationLabel =
-          result['label'] as String? ??
-              'Selected map location';
+      locationLabel = result['label'] as String? ??
+          'Selected map location';
 
       locationAccuracy =
           'Map coordinates · '
@@ -244,8 +178,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       if (!mounted) return;
 
       if (existingReport != null) {
-        final bool? isDuplicate =
-            await showDialog<bool>(
+        final bool? isDuplicate = await showDialog<bool>(
           context: context,
           builder: (context) => DuplicateWarningModal(
             existingReportSummary:
@@ -260,7 +193,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
         if (!mounted) return;
 
-        // Stop if the user cancels or confirms it is a duplicate.
         if (isDuplicate == null || isDuplicate == true) {
           return;
         }
@@ -289,7 +221,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Report submitted successfully'),
+          content: Text('Report submitted successfully.'),
         ),
       );
 
@@ -299,9 +231,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Failed to submit report: $error',
-          ),
+          content: Text('Failed to submit report: $error'),
         ),
       );
     } finally {
@@ -366,7 +296,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Photo upload
+                    // Photo upload.
                     GestureDetector(
                       onTap: isUploadingPhoto
                           ? null
@@ -375,10 +305,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         width: double.infinity,
                         height: 160,
                         decoration: BoxDecoration(
-                          color: AppColors.accentPeach
-                              .withOpacity(0.3),
-                          borderRadius:
-                              BorderRadius.circular(16),
+                          color:
+                              AppColors.accentPeach.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: AppColors.border,
                           ),
@@ -398,16 +327,15 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                           const Center(
                                     child: Icon(
                                       Icons.broken_image_outlined,
-                                      color: AppColors
-                                          .textSecondary,
+                                      color:
+                                          AppColors.textSecondary,
                                     ),
                                   ),
                                 ),
                               )
                             : Center(
                                 child: Column(
-                                  mainAxisSize:
-                                      MainAxisSize.min,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (isUploadingPhoto)
                                       const CircularProgressIndicator(
@@ -420,22 +348,21 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                             AppColors.accentPeach,
                                         child: Icon(
                                           Icons.camera_alt_outlined,
-                                          color:
-                                              AppColors.primary,
+                                          color: AppColors.primary,
                                         ),
                                       ),
                                       const SizedBox(height: 10),
                                       Text(
                                         'Add a clear photo',
-                                        style: AppTextStyles
-                                            .heading2,
+                                        style:
+                                            AppTextStyles.heading2,
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         'A photo helps owners identify '
                                         'the pet fast',
-                                        style: AppTextStyles
-                                            .caption,
+                                        style:
+                                            AppTextStyles.caption,
                                       ),
                                     ],
                                   ],
@@ -446,7 +373,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Report category
+                    // Report category.
                     Text(
                       'What are you reporting?',
                       style: AppTextStyles.heading2,
@@ -455,16 +382,16 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: categories.map((cat) {
+                      children: categories.map((category) {
                         final selected =
-                            selectedCategory == cat;
+                            selectedCategory == category;
 
                         return ChoiceChip(
-                          label: Text(cat),
+                          label: Text(category),
                           selected: selected,
                           onSelected: (_) {
                             setState(() {
-                              selectedCategory = cat;
+                              selectedCategory = category;
                             });
                           },
                           selectedColor: AppColors.primary,
@@ -477,8 +404,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(20),
                             side: const BorderSide(
                               color: AppColors.border,
                             ),
@@ -489,7 +415,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Animal type
+                    // Animal type.
                     Text(
                       'Animal Type',
                       style: AppTextStyles.heading2,
@@ -502,16 +428,21 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         final selected =
                             selectedAnimalType == animal;
 
+                        final IconData animalIcon;
+
+                        switch (animal) {
+                          case 'Dog':
+                          case 'Cat':
+                            animalIcon = Icons.pets;
+                          case 'Bird':
+                            animalIcon = Icons.air;
+                          default:
+                            animalIcon = Icons.category_outlined;
+                        }
+
                         return ChoiceChip(
                           avatar: Icon(
-                            animal == 'Dog'
-                                ? Icons.pets
-                                : animal == 'Cat'
-                                    ? Icons.cruelty_free
-                                    : animal == 'Bird'
-                                        ? Icons.flutter_dash
-                                        : Icons
-                                            .category_outlined,
+                            animalIcon,
                             size: 18,
                             color: selected
                                 ? Colors.white
@@ -534,8 +465,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(20),
                             side: const BorderSide(
                               color: AppColors.border,
                             ),
@@ -546,7 +476,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Pet name
+                    // Pet name.
                     Text(
                       'Pet Name (optional)',
                       style: AppTextStyles.heading2,
@@ -560,7 +490,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Location picker
+                    // Location picker.
                     Text(
                       'Where was it seen?',
                       style: AppTextStyles.heading2,
@@ -570,8 +500,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.cardBackground,
-                        borderRadius:
-                            BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: AppColors.border,
                         ),
@@ -620,8 +549,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color:
-                                          AppColors.accentPeach,
+                                      color: AppColors.accentPeach,
                                       borderRadius:
                                           BorderRadius.circular(20),
                                     ),
@@ -629,8 +557,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                       'Adjust pin',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        fontWeight:
-                                            FontWeight.w600,
+                                        fontWeight: FontWeight.w600,
                                         color:
                                             AppColors.textPrimary,
                                       ),
@@ -646,7 +573,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Description
+                    // Description.
                     Text(
                       'Description (optional)',
                       style: AppTextStyles.heading2,
@@ -662,8 +589,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         filled: true,
                         fillColor: AppColors.cardBackground,
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
                             color: AppColors.border,
                           ),
