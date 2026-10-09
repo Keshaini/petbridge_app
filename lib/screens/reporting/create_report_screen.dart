@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -13,8 +12,6 @@ import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
 import '../../models/report_model.dart';
 import 'duplicate_warning_modal.dart';
-
-// Adjust this path if your map screen is in a different folder.
 import '../search/map_search_screen.dart';
 
 class CreateReportScreen extends StatefulWidget {
@@ -25,17 +22,18 @@ class CreateReportScreen extends StatefulWidget {
       _CreateReportScreenState();
 }
 
-class _CreateReportScreenState
-    extends State<CreateReportScreen> {
+class _CreateReportScreenState extends State<CreateReportScreen> {
   String? selectedCategory;
+  String? selectedAnimalType;
+  String? selectedBreed;
+
   XFile? selectedImage;
   String? uploadedPhotoUrl;
 
   bool isUploadingPhoto = false;
   bool isSubmitting = false;
 
-  // Initial fallback location. The user can change it
-  // using the OpenStreetMap picker.
+  // Initial fallback location. Users can change it using the map picker.
   GeoPoint selectedLocation = const GeoPoint(
     6.8649,
     79.8997,
@@ -56,6 +54,80 @@ class _CreateReportScreenState
     'Injured',
     'Abandoned',
   ];
+
+  final List<String> animalTypes = [
+    'Dog',
+    'Cat',
+    'Bird',
+    'Rabbit',
+    'Other',
+  ];
+
+  final Map<String, List<String>> breedsByAnimalType = {
+    'Dog': [
+      'Mixed Breed',
+      'Labrador Retriever',
+      'German Shepherd',
+      'Golden Retriever',
+      'Poodle',
+      'Beagle',
+      'Bulldog',
+      'Rottweiler',
+      'Pomeranian',
+      'Chihuahua',
+      'Siberian Husky',
+      'Indian Pariah Dog',
+      'Other',
+      'Unknown / Not sure',
+    ],
+    'Cat': [
+      'Mixed Breed',
+      'Persian',
+      'Siamese',
+      'British Shorthair',
+      'Maine Coon',
+      'Bengal',
+      'Ragdoll',
+      'Domestic Shorthair',
+      'Domestic Longhair',
+      'Other',
+      'Unknown / Not sure',
+    ],
+    'Bird': [
+      'Parrot',
+      'Parakeet / Budgerigar',
+      'Cockatiel',
+      'Lovebird',
+      'Pigeon',
+      'Crow',
+      'Myna',
+      'Sparrow',
+      'Other',
+      'Unknown / Not sure',
+    ],
+    'Rabbit': [
+      'Holland Lop',
+      'Netherland Dwarf',
+      'Lionhead',
+      'Rex',
+      'Dutch Rabbit',
+      'Other',
+      'Unknown / Not sure',
+    ],
+    'Other': [
+      'Unknown / Not sure',
+      'Other',
+    ],
+  };
+
+  List<String> get availableBreeds {
+    if (selectedAnimalType == null) {
+      return [];
+    }
+
+    return breedsByAnimalType[selectedAnimalType] ??
+        ['Other', 'Unknown / Not sure'];
+  }
 
   @override
   void dispose() {
@@ -81,8 +153,7 @@ class _CreateReportScreenState
     });
 
     try {
-      final url =
-          await CloudinaryService.uploadImage(pickedFile);
+      final url = await CloudinaryService.uploadImage(pickedFile);
 
       if (!mounted) return;
 
@@ -134,8 +205,8 @@ class _CreateReportScreenState
     setState(() {
       selectedLocation = location;
 
-      locationLabel = result['label'] as String? ??
-          'Selected map location';
+      locationLabel =
+          result['label'] as String? ?? 'Selected map location';
 
       locationAccuracy =
           'Map coordinates · '
@@ -148,11 +219,14 @@ class _CreateReportScreenState
     if (isSubmitting || isUploadingPhoto) return;
 
     if (selectedCategory == null ||
-        uploadedPhotoUrl == null) {
+        uploadedPhotoUrl == null ||
+        selectedAnimalType == null ||
+        selectedBreed == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please add a photo and select a category.',
+            'Please add a photo and select a category, '
+            'animal type, and breed.',
           ),
           backgroundColor: AppColors.statusLost,
         ),
@@ -171,8 +245,7 @@ class _CreateReportScreenState
       if (!mounted) return;
 
       if (existingReport != null) {
-        final bool? isDuplicate =
-            await showDialog<bool>(
+        final bool? isDuplicate = await showDialog<bool>(
           context: context,
           builder: (context) => DuplicateWarningModal(
             existingReportSummary:
@@ -197,9 +270,11 @@ class _CreateReportScreenState
         petName: nameController.text.trim(),
         category: selectedCategory!,
         photoUrl: uploadedPhotoUrl!,
-        // Save the actual location selected on the map.
+        animalType: selectedAnimalType!,
+        breed: selectedBreed!,
         location: selectedLocation,
         locationRadius: 0.5,
+        locationLabel: locationLabel,
         description: descriptionController.text.trim(),
         status: 'Active',
         timestamp: DateTime.now(),
@@ -231,6 +306,77 @@ class _CreateReportScreenState
         setState(() => isSubmitting = false);
       }
     }
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: AppTextStyles.heading2,
+    );
+  }
+
+  Widget _buildDropdown({
+    required String hint,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.border,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          hint: Text(hint),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.textSecondary,
+          ),
+          items: items.map((item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          selectedItemBuilder: (context) {
+            return items.map((item) {
+              return Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      item,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -277,15 +423,14 @@ class _CreateReportScreenState
             ),
             const SizedBox(height: 8),
             const Text(
-              'Step 1 of 3 · Photo & Category',
+              'Step 1 of 3 · Photo & Details',
               style: AppTextStyles.caption,
             ),
             const SizedBox(height: 20),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
                       onTap: isUploadingPhoto
@@ -297,8 +442,7 @@ class _CreateReportScreenState
                         decoration: BoxDecoration(
                           color: AppColors.accentPeach
                               .withOpacity(0.3),
-                          borderRadius:
-                              BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: AppColors.border,
                           ),
@@ -318,16 +462,15 @@ class _CreateReportScreenState
                                           const Center(
                                     child: Icon(
                                       Icons.broken_image_outlined,
-                                      color: AppColors
-                                          .textSecondary,
+                                      color:
+                                          AppColors.textSecondary,
                                     ),
                                   ),
                                 ),
                               )
                             : Center(
                                 child: Column(
-                                  mainAxisSize:
-                                      MainAxisSize.min,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (isUploadingPhoto)
                                       const CircularProgressIndicator(
@@ -340,21 +483,20 @@ class _CreateReportScreenState
                                             AppColors.accentPeach,
                                         child: Icon(
                                           Icons.camera_alt_outlined,
-                                          color:
-                                              AppColors.primary,
+                                          color: AppColors.primary,
                                         ),
                                       ),
                                       const SizedBox(height: 10),
                                       Text(
                                         'Add a clear photo',
-                                        style: AppTextStyles
-                                            .heading2,
+                                        style:
+                                            AppTextStyles.heading2,
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         'A photo helps owners identify the pet fast',
-                                        style: AppTextStyles
-                                            .caption,
+                                        style:
+                                            AppTextStyles.caption,
                                       ),
                                     ],
                                   ],
@@ -362,25 +504,26 @@ class _CreateReportScreenState
                               ),
                       ),
                     ),
+
                     const SizedBox(height: 24),
-                    Text(
-                      'What are you reporting?',
-                      style: AppTextStyles.heading2,
-                    ),
+
+                    _buildSectionTitle('What are you reporting?'),
                     const SizedBox(height: 12),
+
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       children: categories.map((cat) {
-                        final selected =
-                            selectedCategory == cat;
+                        final selected = selectedCategory == cat;
 
                         return ChoiceChip(
                           label: Text(cat),
                           selected: selected,
-                          onSelected: (_) => setState(
-                            () => selectedCategory = cat,
-                          ),
+                          onSelected: (_) {
+                            setState(() {
+                              selectedCategory = cat;
+                            });
+                          },
                           selectedColor: AppColors.primary,
                           backgroundColor:
                               AppColors.cardBackground,
@@ -391,8 +534,7 @@ class _CreateReportScreenState
                             fontWeight: FontWeight.w600,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(20),
                             side: const BorderSide(
                               color: AppColors.border,
                             ),
@@ -400,29 +542,72 @@ class _CreateReportScreenState
                         );
                       }).toList(),
                     ),
+
                     const SizedBox(height: 24),
-                    Text(
-                      'Pet Name (optional)',
-                      style: AppTextStyles.heading2,
+
+                    _buildSectionTitle('Animal Type'),
+                    const SizedBox(height: 12),
+
+                    _buildDropdown(
+                      hint: 'Select animal type',
+                      value: selectedAnimalType,
+                      items: animalTypes,
+                      icon: Icons.pets_outlined,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedAnimalType = value;
+                          selectedBreed = null;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    _buildSectionTitle('Breed'),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Choose the breed if you know it.',
+                      style: AppTextStyles.caption,
                     ),
                     const SizedBox(height: 12),
+
+                    _buildDropdown(
+                      hint: selectedAnimalType == null
+                          ? 'Select animal type first'
+                          : 'Select breed',
+                      value: selectedBreed,
+                      items: availableBreeds,
+                      icon: Icons.category_outlined,
+                      onChanged: selectedAnimalType == null
+                          ? (_) {}
+                          : (value) {
+                              setState(() {
+                                selectedBreed = value;
+                              });
+                            },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    _buildSectionTitle('Pet Name (optional)'),
+                    const SizedBox(height: 12),
+
                     AppTextField(
                       hintText: "Pet's name, if known",
                       icon: Icons.pets_outlined,
                       controller: nameController,
                     ),
+
                     const SizedBox(height: 24),
-                    Text(
-                      'Where was it seen?',
-                      style: AppTextStyles.heading2,
-                    ),
+
+                    _buildSectionTitle('Where was it seen?'),
                     const SizedBox(height: 12),
+
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.cardBackground,
-                        borderRadius:
-                            BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: AppColors.border,
                         ),
@@ -471,8 +656,7 @@ class _CreateReportScreenState
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color:
-                                          AppColors.accentPeach,
+                                      color: AppColors.accentPeach,
                                       borderRadius:
                                           BorderRadius.circular(20),
                                     ),
@@ -480,8 +664,7 @@ class _CreateReportScreenState
                                       'Adjust pin',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        fontWeight:
-                                            FontWeight.w600,
+                                        fontWeight: FontWeight.w600,
                                         color:
                                             AppColors.textPrimary,
                                       ),
@@ -494,12 +677,12 @@ class _CreateReportScreenState
                         ],
                       ),
                     ),
+
                     const SizedBox(height: 24),
-                    Text(
-                      'Description (optional)',
-                      style: AppTextStyles.heading2,
-                    ),
+
+                    _buildSectionTitle('Description (optional)'),
                     const SizedBox(height: 12),
+
                     TextField(
                       controller: descriptionController,
                       maxLines: 4,
@@ -509,19 +692,20 @@ class _CreateReportScreenState
                         filled: true,
                         fillColor: AppColors.cardBackground,
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
                             color: AppColors.border,
                           ),
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
+
             PrimaryButton(
               label: isSubmitting
                   ? 'Submitting...'
