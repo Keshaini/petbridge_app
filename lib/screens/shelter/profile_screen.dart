@@ -21,23 +21,16 @@ class UserProfileOverviewScreen extends StatelessWidget {
         bottom: false,
         child: Stack(
           children: [
-            // ================================================================
             // MAIN SCROLLABLE CONTENT
-            // ================================================================
-
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 110),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ==========================================================
                   // APP BAR HEADER
-                  // ==========================================================
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Back button
                       InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () {
@@ -61,7 +54,6 @@ class UserProfileOverviewScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-
                       const Text(
                         'Profile',
                         style: TextStyle(
@@ -70,13 +62,9 @@ class UserProfileOverviewScreen extends StatelessWidget {
                           color: Color(0xFF2C2420),
                         ),
                       ),
-
-                      // Edit profile button
                       InkWell(
                         borderRadius: BorderRadius.circular(20),
-                        onTap: () {
-                          context.push('/edit-profile');
-                        },
+                        onTap: () => context.push('/edit-profile'),
                         child: Container(
                           width: 40,
                           height: 40,
@@ -96,150 +84,178 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                   const SizedBox(height: 18),
 
-                  // ==========================================================
-                  // PROFILE PHOTO + USER INFORMATION
-                  // ==========================================================
-
+                  // PROFILE PHOTO + LIVE USER INFORMATION
                   Center(
-                    child: Column(
-                      children: [
-                        Stack(
+                    child: StreamBuilder<
+                        DocumentSnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(AuthService.currentUid)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        final data = snapshot.data?.data();
+
+                        final rawName = data?['name'] as String?;
+                        final name = rawName?.trim();
+
+                        final rawPhotoUrl = data?['photoUrl'] as String?;
+                        final photoUrl = rawPhotoUrl?.trim();
+
+                        final rawLocation = data?['location'] as String?;
+                        final location = rawLocation?.trim();
+
+                        final hasPhoto =
+                            photoUrl != null && photoUrl.isNotEmpty;
+
+                        return Column(
                           children: [
-                            Container(
-                              width: 92,
-                              height: 92,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 4,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  'assets/images/my_profile.png',
+                            Stack(
+                              children: [
+                                Container(
                                   width: 92,
                                   height: 92,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: const Color(0xFFFCEFE7),
-                                      child: const Icon(
-                                        Icons.person_rounded,
-                                        size: 48,
-                                        color: Color(0xFF9E8E84),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 4,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 5),
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-
-                            // Camera icon
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF6F3F24),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
-                                  size: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        // Name + verified badge
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            FutureBuilder<DocumentSnapshot>(
-                              future: FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(AuthService.currentUid)
-                                .get(),
-                              builder: (context, snap) {
-                                final data = snap.data?.data() as Map<String, dynamic>?;
-                                final name = (data?['name'] as String?) ?? 'PetBridge user';
-                                return Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF2C2420),
+                                    ],
                                   ),
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD6F0E0),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.check,
-                                    size: 11,
-                                    color: Color(0xFF2E7D32),
+                                  child: ClipOval(
+                                    child: hasPhoto
+                                        ? Image.network(
+                                            photoUrl,
+                                            width: 92,
+                                            height: 92,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
+                                              return _defaultProfileImage();
+                                            },
+                                          )
+                                        : Image.asset(
+                                            'assets/images/my_profile.png',
+                                            width: 92,
+                                            height: 92,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
+                                              return _defaultProfileImage();
+                                            },
+                                          ),
                                   ),
-                                  SizedBox(width: 2),
-                                  Text(
-                                    'Verified',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF2E7D32),
+                                ),
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: InkWell(
+                                    onTap: () =>
+                                        context.push('/edit-profile'),
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF6F3F24),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        color: Colors.white,
+                                        size: 13,
+                                      ),
                                     ),
                                   ),
-                                ],
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // Name + verified badge
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    name == null || name.isEmpty
+                                        ? 'PetBridge user'
+                                        : name,
+                                    textAlign: TextAlign.center,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF2C2420),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD6F0E0),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.check,
+                                        size: 11,
+                                        color: Color(0xFF2E7D32),
+                                      ),
+                                      SizedBox(width: 2),
+                                      Text(
+                                        'Verified',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF2E7D32),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 4),
+
+                            Text(
+                              'Active Community Rescuer · Member since Oct 2023'
+                              '\n${location == null || location.isEmpty ? 'Pinecrest Gardens' : location}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF8A7D75),
+                                height: 1.3,
                               ),
                             ),
                           ],
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        const Text(
-                          'Active Community Rescuer · Member since Oct 2023\n'
-                          'Pinecrest Gardens',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF8A7D75),
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // ==========================================================
                   // NEIGHBORHOOD HERO BANNER
-                  // ==========================================================
-
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -262,9 +278,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                                 size: 22,
                               ),
                             ),
-
                             const SizedBox(width: 12),
-
                             const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +303,6 @@ class UserProfileOverviewScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-
                             const Text(
                               '9/14',
                               style: TextStyle(
@@ -300,9 +313,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 10),
-
                         ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: const LinearProgressIndicator(
@@ -320,10 +331,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // ==========================================================
                   // PROFILE METRICS
-                  // ==========================================================
-
                   Row(
                     children: [
                       _buildMetricTile(
@@ -348,14 +356,11 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                   const SizedBox(height: 22),
 
-                  // ==========================================================
                   // RECENT RESCUES
-                  // ==========================================================
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
+                    children: [
+                      const Text(
                         'Recent Rescues',
                         style: TextStyle(
                           fontSize: 15,
@@ -363,12 +368,15 @@ class UserProfileOverviewScreen extends StatelessWidget {
                           color: Color(0xFF2C2420),
                         ),
                       ),
-                      Text(
-                        'See all (9)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFBA5D43),
+                      InkWell(
+                        onTap: () => context.go('/my-reports'),
+                        child: const Text(
+                          'See all (9)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFBA5D43),
+                          ),
                         ),
                       ),
                     ],
@@ -400,10 +408,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // ==========================================================
                   // ACCOUNT & PREFERENCES
-                  // ==========================================================
-
                   const Text(
                     'ACCOUNT & PREFERENCES',
                     style: TextStyle(
@@ -428,60 +433,51 @@ class UserProfileOverviewScreen extends StatelessWidget {
                           title: 'My Reports',
                           badge: '3 active',
                           badgeBg: const Color(0xFFFDD5B7),
-                          onTap: () {
-                            context.go('/my-reports');
-                          },
+                          onTap: () => context.go('/my-reports'),
                         ),
 
-                        const Divider(
-                          height: 1,
-                          indent: 56,
-                          color: Color(0xFFF3ECE6),
-                        ),
+                        _settingsDivider(),
 
                         _buildSettingsRow(
                           icon: Icons.person_outline_rounded,
                           title: 'Edit Profile',
-                          onTap: () {
-                            context.push('/edit-profile');
-                          },
+                          onTap: () => context.push('/edit-profile'),
                         ),
 
-                        const Divider(
-                          height: 1,
-                          indent: 56,
-                          color: Color(0xFFF3ECE6),
-                        ),
+                        _settingsDivider(),
 
                         _buildSettingsRow(
                           icon: Icons.notifications_none_rounded,
                           title: 'Notification Settings',
                           hasDot: true,
+                          onTap: () => context.push('/settings'),
                         ),
 
-                        const Divider(
-                          height: 1,
-                          indent: 56,
-                          color: Color(0xFFF3ECE6),
-                        ),
+                        _settingsDivider(),
 
                         _buildSettingsRow(
                           icon: Icons.translate_rounded,
                           title: 'Language',
                           subtitle: 'English (US)',
+                          onTap: () => context.push('/settings'),
                         ),
 
-                        const Divider(
-                          height: 1,
-                          indent: 56,
-                          color: Color(0xFFF3ECE6),
-                        ),
+                        _settingsDivider(),
 
                         _buildSettingsRow(
                           icon: Icons.handshake_outlined,
                           title: 'Affiliated Shelters',
                           badge: '2 Connected',
                           badgeBg: const Color(0xFFD6F0E0),
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Affiliated Shelters will be available soon.',
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -489,10 +485,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // ==========================================================
                   // LOG OUT
-                  // ==========================================================
-
                   InkWell(
                     borderRadius: BorderRadius.circular(18),
                     onTap: () async {
@@ -559,10 +552,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // ==========================================================
                   // FOOTER
-                  // ==========================================================
-
                   const Center(
                     child: Text(
                       '♡ PetBridge Rescue Network · v2.4.1\n'
@@ -578,10 +568,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
               ),
             ),
 
-            // ================================================================
             // PERSISTENT BOTTOM NAVIGATION
-            // ================================================================
-
             Positioned(
               left: 20,
               right: 20,
@@ -612,10 +599,29 @@ class UserProfileOverviewScreen extends StatelessWidget {
     );
   }
 
-  // ========================================================================
-  // METRIC TILE
-  // ========================================================================
+  // DEFAULT PROFILE IMAGE
+  static Widget _defaultProfileImage() {
+    return Container(
+      color: const Color(0xFFFCEFE7),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.person_rounded,
+        size: 48,
+        color: Color(0xFF9E8E84),
+      ),
+    );
+  }
 
+  // SETTINGS DIVIDER
+  static Widget _settingsDivider() {
+    return const Divider(
+      height: 1,
+      indent: 56,
+      color: Color(0xFFF3ECE6),
+    );
+  }
+
+  // METRIC TILE
   static Widget _buildMetricTile(
     IconData icon,
     String value,
@@ -670,10 +676,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
     );
   }
 
-  // ========================================================================
   // RECENT RESCUE CARD
-  // ========================================================================
-
   static Widget _buildRescueCard(
     String imageUrl,
     String name,
@@ -697,6 +700,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
           CircleAvatar(
             radius: 20,
             backgroundImage: NetworkImage(imageUrl),
+            onBackgroundImageError: (_, __) {},
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -728,11 +732,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
     );
   }
 
-  // ========================================================================
   // SETTINGS ROW
-  // FIX: Wrap ListTile in Material to handle ink effects correctly.
-  // ========================================================================
-
   static Widget _buildSettingsRow({
     required IconData icon,
     required String title,
@@ -782,6 +782,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
               Container(
                 width: 7,
                 height: 7,
+                margin: const EdgeInsets.only(left: 4),
                 decoration: const BoxDecoration(
                   color: Color(0xFF6F3F24),
                   shape: BoxShape.circle,
@@ -789,6 +790,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
               ),
             if (badge != null)
               Container(
+                margin: const EdgeInsets.only(left: 4),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 8,
                   vertical: 3,
@@ -818,10 +820,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
     );
   }
 
-  // ========================================================================
   // BOTTOM NAVIGATION
-  // ========================================================================
-
   static Widget _buildPersistentBottomNav({
     required int activeIndex,
     required ValueChanged<int> onTap,
@@ -874,10 +873,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
     );
   }
 
-  // ========================================================================
   // NAVIGATION ITEM
-  // ========================================================================
-
   static Widget _navIcon(
     IconData icon,
     String label,
