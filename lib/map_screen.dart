@@ -116,16 +116,11 @@ class _MapScreenState extends State<MapScreen> {
     List<PetReport> filteredReports = _allReports.where((report) {
       bool matchesCategory =
           _selectedCategory == 'All' ||
-          report.status.toLowerCase() ==
-              _selectedCategory.toLowerCase();
+          report.status.toLowerCase() == _selectedCategory.toLowerCase();
 
       bool matchesSearch =
-          report.name.toLowerCase().contains(
-                _searchQuery.toLowerCase(),
-              ) ||
-          report.breed.toLowerCase().contains(
-                _searchQuery.toLowerCase(),
-              );
+          report.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          report.breed.toLowerCase().contains(_searchQuery.toLowerCase());
 
       return matchesCategory && matchesSearch;
     }).toList();
@@ -141,8 +136,7 @@ class _MapScreenState extends State<MapScreen> {
               children: [
                 GridView.builder(
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 5,
                   ),
                   itemBuilder: (context, index) => Container(
@@ -201,12 +195,10 @@ class _MapScreenState extends State<MapScreen> {
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'Hello, Safa',
@@ -226,25 +218,52 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         ],
                       ),
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5EBE1),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFFEEDCCF),
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5EBE1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFEEDCCF),
+                              ),
+                            ),
+                            child: IconButton(
+                              onPressed: () {
+                                context.push('/notifications');
+                              },
+                              icon: const Icon(
+                                Icons.notifications_none_rounded,
+                                color: Color(0xFF5C3A21),
+                              ),
+                              tooltip: 'Notifications',
+                            ),
                           ),
-                        ),
-                        child: GestureDetector(
-                          onTap: () {
-                            context.go('/profile');
-                          },
-                          child: const Icon(
-                            Icons.person_outline,
-                            color: Color(0xFF5C3A21),
+                          const SizedBox(width: 10),
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5EBE1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFEEDCCF),
+                              ),
+                            ),
+                            child: IconButton(
+                              onPressed: () {
+                                context.go('/profile');
+                              },
+                              icon: const Icon(
+                                Icons.person_outline,
+                                color: Color(0xFF5C3A21),
+                              ),
+                              tooltip: 'Profile',
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
@@ -253,9 +272,7 @@ class _MapScreenState extends State<MapScreen> {
 
                   // Search Bar
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAF6F0),
                       borderRadius: BorderRadius.circular(16),
@@ -271,12 +288,8 @@ class _MapScreenState extends State<MapScreen> {
                         });
                       },
                       decoration: const InputDecoration(
-                        icon: Icon(
-                          Icons.search,
-                          color: Color(0xFF5C3A21),
-                        ),
-                        hintText:
-                            'Search area or pet name...',
+                        icon: Icon(Icons.search, color: Color(0xFF5C3A21)),
+                        hintText: 'Search area or pet name...',
                         hintStyle: TextStyle(
                           color: Color(0xFF9E8B7C),
                           fontSize: 14,
@@ -290,64 +303,44 @@ class _MapScreenState extends State<MapScreen> {
 
                   // Filter Chips
                   Row(
-                    children: ['All', 'Lost', 'Found', 'Injured']
-                        .map(
-                          (category) {
-                            bool isSelected =
-                                _selectedCategory ==
-                                    category;
+                    children: ['All', 'Lost', 'Found', 'Injured'].map((
+                      category,
+                    ) {
+                      bool isSelected = _selectedCategory == category;
 
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.only(
-                                right: 8.0,
-                              ),
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedCategory =
-                                        category;
-                                  });
-                                },
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets
-                                          .symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  decoration:
-                                      BoxDecoration(
-                                    color: isSelected
-                                        ? const Color(
-                                            0xFF5C3A21,
-                                          )
-                                        : const Color(
-                                            0xFFF5EBE1,
-                                          ),
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(20),
-                                  ),
-                                  child: Text(
-                                    category,
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : const Color(
-                                              0xFF5C3A21,
-                                            ),
-                                      fontWeight:
-                                          FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedCategory = category;
+                            });
                           },
-                        )
-                        .toList(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF5C3A21)
+                                  : const Color(0xFFF5EBE1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF5C3A21),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -360,11 +353,7 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 180,
             child: FloatingActionButton(
               backgroundColor: const Color(0xFFE38B75),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 28,
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
               onPressed: () {
                 context.push('/create-report');
               },
@@ -381,14 +370,11 @@ class _MapScreenState extends State<MapScreen> {
               children: [
                 if (filteredReports.isNotEmpty)
                   Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                    ),
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: const Color(0xFFE4DFD5),
                         width: 1,
@@ -401,8 +387,7 @@ class _MapScreenState extends State<MapScreen> {
                           height: 56,
                           decoration: BoxDecoration(
                             color: const Color(0xFFF5EBE1),
-                            borderRadius:
-                                BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Icon(
                             Icons.pets,
@@ -415,21 +400,17 @@ class _MapScreenState extends State<MapScreen> {
 
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 '${filteredReports.first.name} — ${filteredReports.first.breed}',
                                 style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.bold,
+                                  fontWeight: FontWeight.bold,
                                   fontSize: 14,
-                                  color:
-                                      Color(0xFF3D2314),
+                                  color: Color(0xFF3D2314),
                                 ),
                                 maxLines: 1,
-                                overflow:
-                                    TextOverflow.ellipsis,
+                                overflow: TextOverflow.ellipsis,
                               ),
 
                               const SizedBox(height: 4),
@@ -437,31 +418,21 @@ class _MapScreenState extends State<MapScreen> {
                               Row(
                                 children: [
                                   Container(
-                                    padding:
-                                        const EdgeInsets
-                                            .symmetric(
+                                    padding: const EdgeInsets.symmetric(
                                       horizontal: 5,
                                       vertical: 2,
                                     ),
-                                    decoration:
-                                        BoxDecoration(
-                                      color: const Color(
-                                        0xFFE38B75,
-                                      ),
-                                      borderRadius:
-                                          BorderRadius
-                                              .circular(4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE38B75),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      filteredReports
-                                          .first.status
+                                      filteredReports.first.status
                                           .toUpperCase(),
-                                      style:
-                                          const TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 9,
-                                        fontWeight:
-                                            FontWeight.bold,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
@@ -471,17 +442,12 @@ class _MapScreenState extends State<MapScreen> {
                                   Expanded(
                                     child: Text(
                                       '${filteredReports.first.distance} · ${filteredReports.first.timeAgo}',
-                                      style:
-                                          const TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 11,
-                                        color: Color(
-                                          0xFF7A6B5D,
-                                        ),
+                                        color: Color(0xFF7A6B5D),
                                       ),
                                       maxLines: 1,
-                                      overflow:
-                                          TextOverflow
-                                              .ellipsis,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
@@ -493,25 +459,16 @@ class _MapScreenState extends State<MapScreen> {
                         const SizedBox(width: 8),
 
                         ElevatedButton(
-                          style:
-                              ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color(0xFF5C3A21),
-                            foregroundColor:
-                                Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(
-                              horizontal: 12,
-                            ),
-                            shape:
-                                RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(10),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5C3A21),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                           onPressed: () {
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(
+                            ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
                                   'Viewing details for ${filteredReports.first.name}',
@@ -542,24 +499,15 @@ class _MapScreenState extends State<MapScreen> {
                       top: Radius.circular(24),
                     ),
                     border: Border(
-                      top: BorderSide(
-                        color: Color(0xFFE4DFD5),
-                        width: 1,
-                      ),
+                      top: BorderSide(color: Color(0xFFE4DFD5), width: 1),
                     ),
                   ),
                   child: Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildNavItem(
-                        Icons.home_outlined,
-                        'Home',
-                        true,
-                        () {
-                          context.go('/home');
-                        },
-                      ),
+                      _buildNavItem(Icons.home_outlined, 'Home', true, () {
+                        context.go('/home');
+                      }),
                       _buildNavItem(
                         Icons.location_on_outlined,
                         'Map',
@@ -576,14 +524,9 @@ class _MapScreenState extends State<MapScreen> {
                           context.go('/my-reports');
                         },
                       ),
-                      _buildNavItem(
-                        Icons.person_outline,
-                        'Profile',
-                        false,
-                        () {
-                          context.go('/profile');
-                        },
-                      ),
+                      _buildNavItem(Icons.person_outline, 'Profile', false, () {
+                        context.go('/profile');
+                      }),
                     ],
                   ),
                 ),
@@ -617,9 +560,7 @@ class _MapScreenState extends State<MapScreen> {
             label,
             style: TextStyle(
               fontSize: 11,
-              fontWeight: isSelected
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               color: isSelected
                   ? const Color(0xFF5C3A21)
                   : const Color(0xFF9E8B7C),

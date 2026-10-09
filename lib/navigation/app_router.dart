@@ -19,6 +19,7 @@ import '../screens/reporting/my_reports_screen.dart';
 
 // Search
 import '../screens/search/map_search_screen.dart';
+import '../screens/notifications/notifications_screen.dart';
 
 // Shelter screens
 import '../screens/shelter/shelter_dashboard_screen.dart';
@@ -62,22 +63,13 @@ final GoRouter appRouter = GoRouter(
     // =========================
     // AUTHENTICATION
     // =========================
-    GoRoute(
-      path: '/splash',
-      builder: (context, state) => const SplashScreen(),
-    ),
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(
       path: '/onboarding',
       builder: (context, state) => const OnboardingScreen(),
     ),
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/signup',
-      builder: (context, state) => const SignupScreen(),
-    ),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(path: '/signup', builder: (context, state) => const SignupScreen()),
     GoRoute(
       path: '/forgot-password',
       builder: (context, state) => const ForgotPasswordScreen(),
@@ -94,10 +86,7 @@ final GoRouter appRouter = GoRouter(
     // =========================
     // HOME
     // =========================
-    GoRoute(
-      path: '/home',
-      builder: (context, state) => const MapScreen(),
-    ),
+    GoRoute(path: '/home', builder: (context, state) => const MapScreen()),
 
     // =========================
     // REPORTING
@@ -131,6 +120,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/map-search',
       builder: (context, state) => const MapSearchScreen(),
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationsScreen(),
     ),
 
     // =========================
