@@ -12,7 +12,7 @@ import '../map_screen.dart';
 import '../reset_password_screen.dart';
 
 // Reporting screens
-import '../screens/reporting/create_report_screen.dart';
+import '../screens/reporting/create_report_screen.dart' hide MapSearchScreen;
 import '../screens/reporting/report_detail_screen.dart';
 import '../screens/reporting/edit_report_screen.dart';
 import '../screens/reporting/my_reports_screen.dart';
