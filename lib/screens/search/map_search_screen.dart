@@ -51,6 +51,10 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
   bool _showLocationPicker = true;
   bool _isLocating = false;
   bool _isSearching = false;
+  bool _isResolvingAddress = false;
+
+  // Prevents an older address lookup from overwriting a newer selection.
+  int _addressRequestId = 0;
 
   List<ReportModel> _filteredReports = const [];
   List<ReportModel> _latestReports = const [];
@@ -72,8 +76,6 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     _selectedLocation = widget.initialLocation;
     _locationLabel = widget.initialLocationLabel;
 
-    // In picker mode, the user must explicitly choose and confirm
-    // a location, even if an initial location was supplied.
     _showLocationPicker =
         widget.selectionMode || widget.initialLocation == null;
 
@@ -83,6 +85,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
   @override
   void dispose() {
+    _addressRequestId++;
     _locationController.dispose();
     super.dispose();
   }
@@ -223,10 +226,18 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
       if (!mounted) return;
 
-      _setLocation(
-        GeoPoint(position.latitude, position.longitude),
-        'Current location',
+      final location = GeoPoint(
+        position.latitude,
+        position.longitude,
       );
+
+      if (widget.selectionMode) {
+        await _selectMapPoint(
+          LatLng(position.latitude, position.longitude),
+        );
+      } else {
+        _setLocation(location, 'Current location');
+      }
     } catch (error) {
       if (!mounted) return;
 
@@ -283,13 +294,21 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
       if (!mounted) return;
 
-      _setLocation(
-        GeoPoint(
-          double.parse(result['lat'] as String),
-          double.parse(result['lon'] as String),
-        ),
-        result['display_name'] as String? ?? query,
+      final location = GeoPoint(
+        double.parse(result['lat'] as String),
+        double.parse(result['lon'] as String),
       );
+
+      final label = _formatPlaceName(result);
+
+      if (widget.selectionMode) {
+        await _selectMapPoint(
+          LatLng(location.latitude, location.longitude),
+          fallbackLabel: label,
+        );
+      } else {
+        _setLocation(location, label);
+      }
     } catch (error) {
       if (!mounted) return;
 
@@ -305,16 +324,149 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     }
   }
 
+  /// Selects a map point and looks up a readable address for it.
+  Future<void> _selectMapPoint(
+    LatLng point, {
+    String? fallbackLabel,
+  }) async {
+    final location = GeoPoint(
+      point.latitude,
+      point.longitude,
+    );
+
+    final requestId = ++_addressRequestId;
+
+    final fallback = fallbackLabel ??
+        'Selected location '
+            '(${point.latitude.toStringAsFixed(5)}, '
+            '${point.longitude.toStringAsFixed(5)})';
+
+    setState(() {
+      _selectedLocation = location;
+      _locationLabel = fallbackLabel ?? 'Finding place name...';
+      _isResolvingAddress = true;
+      _showLocationPicker = false;
+      _showFilters = false;
+      _filteredReports = const [];
+    });
+
+    try {
+      final response = await http.get(
+        Uri.https(
+          'nominatim.openstreetmap.org',
+          '/reverse',
+          {
+            'lat': point.latitude.toString(),
+            'lon': point.longitude.toString(),
+            'format': 'jsonv2',
+            'addressdetails': '1',
+            'zoom': '18',
+          },
+        ),
+        headers: const {
+          'User-Agent': 'PetBridge/1.0 contact@petbridge.app',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Address lookup failed.');
+      }
+
+      final result =
+          jsonDecode(response.body) as Map<String, dynamic>;
+
+      final label = _formatPlaceName(result);
+
+      if (!mounted || requestId != _addressRequestId) return;
+
+      setState(() {
+        _locationLabel = label;
+        _isResolvingAddress = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _addressRequestId) return;
+
+      setState(() {
+        _locationLabel = fallback;
+        _isResolvingAddress = false;
+      });
+    }
+  }
+
+  /// Creates a concise, readable address from a Nominatim result.
+  String _formatPlaceName(Map<String, dynamic> result) {
+    final address = result['address'];
+
+    if (address is! Map<String, dynamic>) {
+      final name = result['name'] as String?;
+      if (name != null && name.trim().isNotEmpty) {
+        return name.trim();
+      }
+
+      final displayName = result['display_name'] as String?;
+      if (displayName != null && displayName.trim().isNotEmpty) {
+        return displayName.trim();
+      }
+
+      return 'Selected map location';
+    }
+
+    final parts = <String>[];
+
+    void addPart(dynamic value) {
+      if (value is String &&
+          value.trim().isNotEmpty &&
+          !parts.contains(value.trim())) {
+        parts.add(value.trim());
+      }
+    }
+
+    addPart(
+      address['road'] ??
+          address['pedestrian'] ??
+          address['footway'],
+    );
+
+    addPart(
+      address['neighbourhood'] ??
+          address['suburb'] ??
+          address['quarter'],
+    );
+
+    addPart(
+      address['city'] ??
+          address['town'] ??
+          address['village'] ??
+          address['municipality'] ??
+          address['county'],
+    );
+
+    addPart(address['state']);
+    addPart(address['country']);
+
+    if (parts.isNotEmpty) {
+      return parts.take(4).join(', ');
+    }
+
+    final displayName = result['display_name'] as String?;
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      return displayName.trim();
+    }
+
+    return 'Selected map location';
+  }
+
   void _setLocation(GeoPoint location, String label) {
+    // Invalidate any previous reverse-geocoding request.
+    _addressRequestId++;
+
     setState(() {
       _selectedLocation = location;
       _locationLabel = label;
+      _isResolvingAddress = false;
       _showLocationPicker = false;
-
-      // Do not display report filters in the location-picker flow.
       _showFilters =
           !widget.selectionMode && _selectedLocation != null;
-
       _filteredReports = const [];
     });
   }
@@ -363,13 +515,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
                       : _latestReports,
                   selectedLocation: _selectedLocation,
                   onMapTap: widget.selectionMode
-                      ? (point) => _setLocation(
-                            GeoPoint(
-                              point.latitude,
-                              point.longitude,
-                            ),
-                            'Selected map location',
-                          )
+                      ? _selectMapPoint
                       : null,
                 ),
               ),
@@ -405,13 +551,14 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
                       : null,
                 ),
 
-              // Location-picker confirmation.
+              // Confirmation panel in location-picker mode.
               if (widget.selectionMode &&
                   !_showLocationPicker &&
                   _selectedLocation != null)
                 _ConfirmLocation(
                   label: _locationLabel ?? 'Selected location',
                   location: _selectedLocation!,
+                  isResolvingAddress: _isResolvingAddress,
                   onChangeLocation: _openLocationPicker,
                   onConfirm: _confirmLocation,
                 ),
@@ -743,12 +890,14 @@ class _ConfirmLocation extends StatelessWidget {
   const _ConfirmLocation({
     required this.label,
     required this.location,
+    required this.isResolvingAddress,
     required this.onChangeLocation,
     required this.onConfirm,
   });
 
   final String label;
   final GeoPoint location;
+  final bool isResolvingAddress;
   final VoidCallback onChangeLocation;
   final VoidCallback onConfirm;
 
@@ -779,22 +928,59 @@ class _ConfirmLocation extends StatelessWidget {
                 'Confirm pet location',
                 style: _headingStyle,
               ),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    color: AppColors.primary,
+                    size: 21,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  if (isResolvingAddress) ...[
+                    const SizedBox(width: 8),
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               const SizedBox(height: 8),
               Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Lat: ${location.latitude.toStringAsFixed(6)}\n'
-                'Lng: ${location.longitude.toStringAsFixed(6)}',
+                'Latitude: ${location.latitude.toStringAsFixed(6)}\n'
+                'Longitude: ${location.longitude.toStringAsFixed(6)}',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                 ),
               ),
-              const SizedBox(height: 12),
+              if (isResolvingAddress) ...[
+                const SizedBox(height: 5),
+                const Text(
+                  'Finding the place name…',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(

@@ -12,20 +12,78 @@ import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
 import '../../models/report_model.dart';
 import 'duplicate_warning_modal.dart';
-import '../search/map_search_screen.dart';
+
+class MapSearchScreen extends StatelessWidget {
+  const MapSearchScreen({
+    super.key,
+    required this.selectionMode,
+    required this.initialLocation,
+    required this.initialLocationLabel,
+  });
+
+  final bool selectionMode;
+  final GeoPoint initialLocation;
+  final String initialLocationLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Select location'),
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
+      ),
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                size: 56,
+                color: AppColors.primary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Map location picker',
+                style: AppTextStyles.heading2,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Use the current report pin for this demo: $initialLocationLabel',
+                style: AppTextStyles.bodyText,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              PrimaryButton(
+                label: 'Use this location',
+                onPressed: () => Navigator.of(context).pop({
+                  'location': initialLocation,
+                  'label': initialLocationLabel,
+                }),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
 
   @override
-  State<CreateReportScreen> createState() =>
-      _CreateReportScreenState();
+  State<CreateReportScreen> createState() => _CreateReportScreenState();
 }
 
 class _CreateReportScreenState extends State<CreateReportScreen> {
   String? selectedCategory;
   String? selectedAnimalType;
-  String? selectedBreed;
 
   XFile? selectedImage;
   String? uploadedPhotoUrl;
@@ -33,18 +91,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   bool isUploadingPhoto = false;
   bool isSubmitting = false;
 
-  // Initial fallback location. Users can change it using the map picker.
-  GeoPoint selectedLocation = const GeoPoint(
-    6.8649,
-    79.8997,
-  );
-
+  GeoPoint selectedLocation = const GeoPoint(6.8649, 79.8997);
   String locationLabel = 'Nugegoda Junction';
-  String locationAccuracy = 'Default location · Please verify';
+  String locationAccuracy = 'GPS pin dropped · ±20 m accuracy';
 
-  final TextEditingController nameController =
-      TextEditingController();
-
+  final TextEditingController nameController = TextEditingController();
   final TextEditingController descriptionController =
       TextEditingController();
 
@@ -59,75 +110,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     'Dog',
     'Cat',
     'Bird',
-    'Rabbit',
     'Other',
   ];
-
-  final Map<String, List<String>> breedsByAnimalType = {
-    'Dog': [
-      'Mixed Breed',
-      'Labrador Retriever',
-      'German Shepherd',
-      'Golden Retriever',
-      'Poodle',
-      'Beagle',
-      'Bulldog',
-      'Rottweiler',
-      'Pomeranian',
-      'Chihuahua',
-      'Siberian Husky',
-      'Indian Pariah Dog',
-      'Other',
-      'Unknown / Not sure',
-    ],
-    'Cat': [
-      'Mixed Breed',
-      'Persian',
-      'Siamese',
-      'British Shorthair',
-      'Maine Coon',
-      'Bengal',
-      'Ragdoll',
-      'Domestic Shorthair',
-      'Domestic Longhair',
-      'Other',
-      'Unknown / Not sure',
-    ],
-    'Bird': [
-      'Parrot',
-      'Parakeet / Budgerigar',
-      'Cockatiel',
-      'Lovebird',
-      'Pigeon',
-      'Crow',
-      'Myna',
-      'Sparrow',
-      'Other',
-      'Unknown / Not sure',
-    ],
-    'Rabbit': [
-      'Holland Lop',
-      'Netherland Dwarf',
-      'Lionhead',
-      'Rex',
-      'Dutch Rabbit',
-      'Other',
-      'Unknown / Not sure',
-    ],
-    'Other': [
-      'Unknown / Not sure',
-      'Other',
-    ],
-  };
-
-  List<String> get availableBreeds {
-    if (selectedAnimalType == null) {
-      return [];
-    }
-
-    return breedsByAnimalType[selectedAnimalType] ??
-        ['Other', 'Unknown / Not sure'];
-  }
 
   @override
   void dispose() {
@@ -137,22 +121,22 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   }
 
   Future<void> _pickAndUploadPhoto() async {
-    final ImagePicker picker = ImagePicker();
-
-    final XFile? pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 70,
-    );
-
-    if (pickedFile == null || !mounted) return;
-
-    setState(() {
-      selectedImage = pickedFile;
-      isUploadingPhoto = true;
-      uploadedPhotoUrl = null;
-    });
-
     try {
+      final ImagePicker picker = ImagePicker();
+
+      final XFile? pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+
+      if (pickedFile == null || !mounted) return;
+
+      setState(() {
+        selectedImage = pickedFile;
+        isUploadingPhoto = true;
+        uploadedPhotoUrl = null;
+      });
+
       final url = await CloudinaryService.uploadImage(pickedFile);
 
       if (!mounted) return;
@@ -165,9 +149,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       if (url == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Photo upload failed, please try again',
-            ),
+            content: Text('Photo upload failed, please try again'),
           ),
         );
       }
@@ -177,16 +159,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       setState(() => isUploadingPhoto = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Photo upload failed: $error'),
-        ),
+        SnackBar(content: Text('Could not upload photo: $error')),
       );
     }
   }
 
   Future<void> _adjustPin() async {
-    final result = await Navigator.of(context)
-        .push<Map<String, dynamic>>(
+    final result = await Navigator.of(context).push<dynamic>(
       MaterialPageRoute(
         builder: (_) => MapSearchScreen(
           selectionMode: true,
@@ -198,49 +177,62 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
     if (!mounted || result == null) return;
 
-    final location = result['location'];
+    if (result is Map) {
+      final location = result['location'];
+      final label = result['label'];
 
-    if (location is! GeoPoint) return;
+      if (location is GeoPoint) {
+        setState(() {
+          selectedLocation = location;
 
-    setState(() {
-      selectedLocation = location;
+          if (label is String && label.trim().isNotEmpty) {
+            locationLabel = label;
+          }
 
-      locationLabel =
-          result['label'] as String? ?? 'Selected map location';
-
-      locationAccuracy =
-          'Map coordinates · '
-          '${location.latitude.toStringAsFixed(5)}, '
-          '${location.longitude.toStringAsFixed(5)}';
-    });
+          locationAccuracy = 'Location selected on map';
+        });
+      }
+    }
   }
 
   Future<void> _onContinue() async {
-    if (isSubmitting || isUploadingPhoto) return;
-
-    if (selectedCategory == null ||
-        uploadedPhotoUrl == null ||
-        selectedAnimalType == null ||
-        selectedBreed == null) {
+    if (uploadedPhotoUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please add a photo and select a category, '
-            'animal type, and breed.',
-          ),
+          content: Text('Please add a photo before continuing.'),
           backgroundColor: AppColors.statusLost,
         ),
       );
       return;
     }
 
+    if (selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a report category.'),
+          backgroundColor: AppColors.statusLost,
+        ),
+      );
+      return;
+    }
+
+    if (selectedAnimalType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select an animal type.'),
+          backgroundColor: AppColors.statusLost,
+        ),
+      );
+      return;
+    }
+
+    if (isSubmitting || isUploadingPhoto) return;
+
     setState(() => isSubmitting = true);
 
     try {
       final existingReport =
-          await FirestoreService.checkForDuplicate(
-        selectedCategory!,
-      );
+          await FirestoreService.checkForDuplicate(selectedCategory!);
 
       if (!mounted) return;
 
@@ -250,16 +242,16 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           builder: (context) => DuplicateWarningModal(
             existingReportSummary:
                 'A report matching this animal was submitted recently nearby.',
-            existingReportPhotoUrl:
-                existingReport.photoUrl.isNotEmpty
-                    ? existingReport.photoUrl
-                    : null,
+            existingReportPhotoUrl: existingReport.photoUrl.isNotEmpty
+                ? existingReport.photoUrl
+                : null,
           ),
         );
 
         if (!mounted) return;
 
         if (isDuplicate == null || isDuplicate == true) {
+          setState(() => isSubmitting = false);
           return;
         }
       }
@@ -269,20 +261,17 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ownerUid: AuthService.currentUid,
         petName: nameController.text.trim(),
         category: selectedCategory!,
-        photoUrl: uploadedPhotoUrl!,
         animalType: selectedAnimalType!,
-        breed: selectedBreed!,
+        photoUrl: uploadedPhotoUrl!,
         location: selectedLocation,
-        locationRadius: 0.5,
         locationLabel: locationLabel,
+        locationRadius: 0.5,
         description: descriptionController.text.trim(),
         status: 'Active',
         timestamp: DateTime.now(),
       );
 
-      await FirestoreService.createReport(
-        newReport.toMap(),
-      );
+      await FirestoreService.createReport(newReport.toMap());
 
       if (!mounted) return;
 
@@ -308,71 +297,43 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     }
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: AppTextStyles.heading2,
-    );
-  }
-
-  Widget _buildDropdown({
-    required String hint,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-    required IconData icon,
-  }) {
+  Widget _buildAnimalTypeDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: value,
+          value: selectedAnimalType,
           isExpanded: true,
-          hint: Text(hint),
+          hint: const Text('Select animal type'),
           icon: const Icon(
             Icons.keyboard_arrow_down_rounded,
             color: AppColors.textSecondary,
           ),
-          items: items.map((item) {
+          items: animalTypes.map((animalType) {
             return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          selectedItemBuilder: (context) {
-            return items.map((item) {
-              return Row(
+              value: animalType,
+              child: Row(
                 children: [
-                  Icon(
-                    icon,
-                    size: 20,
+                  const Icon(
+                    Icons.pets_outlined,
                     color: AppColors.primary,
+                    size: 20,
                   ),
                   const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      item,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                  Text(animalType),
                 ],
-              );
-            }).toList();
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              selectedAnimalType = value;
+            });
           },
         ),
       ),
@@ -423,7 +384,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Step 1 of 3 · Photo & Details',
+              'Step 1 of 3 · Photo & Category',
               style: AppTextStyles.caption,
             ),
             const SizedBox(height: 20),
@@ -433,100 +394,93 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
-                      onTap: isUploadingPhoto
-                          ? null
-                          : _pickAndUploadPhoto,
+                      onTap: isUploadingPhoto ? null : _pickAndUploadPhoto,
                       child: Container(
                         width: double.infinity,
                         height: 160,
                         decoration: BoxDecoration(
-                          color: AppColors.accentPeach
-                              .withOpacity(0.3),
+                          color: AppColors.accentPeach.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.border,
-                          ),
+                          border: Border.all(color: AppColors.border),
                         ),
-                        child: uploadedPhotoUrl != null &&
-                                !isUploadingPhoto
-                            ? ClipRRect(
-                                borderRadius:
-                                    BorderRadius.circular(16),
-                                child: Image.network(
-                                  uploadedPhotoUrl!,
-                                  fit: BoxFit.contain,
-                                  width: double.infinity,
-                                  height: 160,
-                                  errorBuilder:
-                                      (context, error, stack) =>
-                                          const Center(
-                                    child: Icon(
-                                      Icons.broken_image_outlined,
-                                      color:
-                                          AppColors.textSecondary,
-                                    ),
-                                  ),
+                        child: isUploadingPhoto
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
                                 ),
                               )
-                            : Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (isUploadingPhoto)
-                                      const CircularProgressIndicator(
-                                        color: AppColors.primary,
-                                      )
-                                    else ...[
-                                      const CircleAvatar(
-                                        radius: 22,
-                                        backgroundColor:
-                                            AppColors.accentPeach,
-                                        child: Icon(
-                                          Icons.camera_alt_outlined,
-                                          color: AppColors.primary,
+                            : uploadedPhotoUrl != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Image.network(
+                                      uploadedPhotoUrl!,
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: 160,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return const Center(
+                                          child: Icon(
+                                            Icons.broken_image_outlined,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  )
+                                : Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 22,
+                                          backgroundColor:
+                                              AppColors.accentPeach,
+                                          child: const Icon(
+                                            Icons.camera_alt_outlined,
+                                            color: AppColors.primary,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        'Add a clear photo',
-                                        style:
-                                            AppTextStyles.heading2,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'A photo helps owners identify the pet fast',
-                                        style:
-                                            AppTextStyles.caption,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'Add a clear photo',
+                                          style: AppTextStyles.heading2,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'A photo helps owners identify the pet fast',
+                                          style: AppTextStyles.caption,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                       ),
                     ),
-
                     const SizedBox(height: 24),
 
-                    _buildSectionTitle('What are you reporting?'),
+                    Text(
+                      'What are you reporting?',
+                      style: AppTextStyles.heading2,
+                    ),
                     const SizedBox(height: 12),
-
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: categories.map((cat) {
-                        final selected = selectedCategory == cat;
+                      children: categories.map((category) {
+                        final bool selected =
+                            selectedCategory == category;
 
                         return ChoiceChip(
-                          label: Text(cat),
+                          label: Text(category),
                           selected: selected,
                           onSelected: (_) {
                             setState(() {
-                              selectedCategory = cat;
+                              selectedCategory = category;
                             });
                           },
                           selectedColor: AppColors.primary,
-                          backgroundColor:
-                              AppColors.cardBackground,
+                          backgroundColor: AppColors.cardBackground,
                           labelStyle: TextStyle(
                             color: selected
                                 ? Colors.white
@@ -542,75 +496,39 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         );
                       }).toList(),
                     ),
-
                     const SizedBox(height: 24),
 
-                    _buildSectionTitle('Animal Type'),
-                    const SizedBox(height: 12),
-
-                    _buildDropdown(
-                      hint: 'Select animal type',
-                      value: selectedAnimalType,
-                      items: animalTypes,
-                      icon: Icons.pets_outlined,
-                      onChanged: (value) {
-                        setState(() {
-                          selectedAnimalType = value;
-                          selectedBreed = null;
-                        });
-                      },
+                    Text(
+                      'Animal Type',
+                      style: AppTextStyles.heading2,
                     ),
-
+                    const SizedBox(height: 12),
+                    _buildAnimalTypeDropdown(),
                     const SizedBox(height: 24),
 
-                    _buildSectionTitle('Breed'),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Choose the breed if you know it.',
-                      style: AppTextStyles.caption,
+                    Text(
+                      'Pet Name (optional)',
+                      style: AppTextStyles.heading2,
                     ),
                     const SizedBox(height: 12),
-
-                    _buildDropdown(
-                      hint: selectedAnimalType == null
-                          ? 'Select animal type first'
-                          : 'Select breed',
-                      value: selectedBreed,
-                      items: availableBreeds,
-                      icon: Icons.category_outlined,
-                      onChanged: selectedAnimalType == null
-                          ? (_) {}
-                          : (value) {
-                              setState(() {
-                                selectedBreed = value;
-                              });
-                            },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    _buildSectionTitle('Pet Name (optional)'),
-                    const SizedBox(height: 12),
-
                     AppTextField(
                       hintText: "Pet's name, if known",
                       icon: Icons.pets_outlined,
                       controller: nameController,
                     ),
-
                     const SizedBox(height: 24),
 
-                    _buildSectionTitle('Where was it seen?'),
+                    Text(
+                      'Where was it seen?',
+                      style: AppTextStyles.heading2,
+                    ),
                     const SizedBox(height: 12),
-
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.cardBackground,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppColors.border,
-                        ),
+                        border: Border.all(color: AppColors.border),
                       ),
                       child: Row(
                         children: [
@@ -618,10 +536,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             width: 56,
                             height: 56,
                             decoration: BoxDecoration(
-                              color: AppColors.accentPeach
-                                  .withOpacity(0.4),
-                              borderRadius:
-                                  BorderRadius.circular(10),
+                              color:
+                                  AppColors.accentPeach.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(
                               Icons.location_on,
@@ -631,13 +548,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   locationLabel,
-                                  style: AppTextStyles.bodyText
-                                      .copyWith(
+                                  style: AppTextStyles.bodyText.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -650,23 +565,20 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                 GestureDetector(
                                   onTap: _adjustPin,
                                   child: Container(
-                                    padding:
-                                        const EdgeInsets.symmetric(
+                                    padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
                                       color: AppColors.accentPeach,
-                                      borderRadius:
-                                          BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: const Text(
                                       'Adjust pin',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color:
-                                            AppColors.textPrimary,
+                                        color: AppColors.textPrimary,
                                       ),
                                     ),
                                   ),
@@ -677,12 +589,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 24),
 
-                    _buildSectionTitle('Description (optional)'),
+                    Text(
+                      'Description (optional)',
+                      style: AppTextStyles.heading2,
+                    ),
                     const SizedBox(height: 12),
-
                     TextField(
                       controller: descriptionController,
                       maxLines: 4,
@@ -697,19 +610,21 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             color: AppColors.border,
                           ),
                         ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.border,
+                          ),
+                        ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
-
             PrimaryButton(
-              label: isSubmitting
-                  ? 'Submitting...'
-                  : 'Continue',
+              label: isSubmitting ? 'Submitting...' : 'Continue',
               onPressed: isSubmitting || isUploadingPhoto
                   ? () {}
                   : _onContinue,
