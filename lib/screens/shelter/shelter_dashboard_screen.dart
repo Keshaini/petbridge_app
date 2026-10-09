@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ShelterDashboardScreen extends StatefulWidget {
   const ShelterDashboardScreen({super.key});
@@ -10,7 +11,6 @@ class ShelterDashboardScreen extends StatefulWidget {
 
 class _ShelterDashboardScreenState extends State<ShelterDashboardScreen> {
   bool urgentOnly = false;
-  int _selectedIndex = 2;
 
   // ================================================================
   // SHELTER CASES
@@ -91,7 +91,6 @@ class _ShelterDashboardScreenState extends State<ShelterDashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F4EC),
-
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -364,8 +363,6 @@ class _ShelterDashboardScreenState extends State<ShelterDashboardScreen> {
                           crossAxisCount: 2,
                           crossAxisSpacing: 14,
                           mainAxisSpacing: 18,
-
-                          // Increased card height
                           mainAxisExtent: 360,
                         ),
                         itemCount: displayedCases.length,
@@ -411,23 +408,23 @@ class _ShelterDashboardScreenState extends State<ShelterDashboardScreen> {
                     _buildNavItem(
                       Icons.home_outlined,
                       'Home',
-                      0,
+                      onTap: () => context.go('/home'),
                     ),
                     _buildNavItem(
                       Icons.location_on_outlined,
                       'Map',
-                      1,
+                      onTap: () => context.go('/map-search'),
                     ),
                     _buildNavItem(
                       Icons.dashboard_rounded,
                       'Dashboard',
-                      2,
                       isActive: true,
+                      onTap: () => context.go('/shelter-dashboard'),
                     ),
                     _buildNavItem(
                       Icons.person_outline_rounded,
                       'Profile',
-                      3,
+                      onTap: () => context.go('/profile'),
                     ),
                   ],
                 ),
@@ -518,15 +515,9 @@ class _ShelterDashboardScreenState extends State<ShelterDashboardScreen> {
             borderRadius: BorderRadius.circular(16),
             child: Image.asset(
               item['image'],
-
-              // Increased image height
               height: 190,
-
               width: double.infinity,
-
-              // Keeps the image filling the entire area.
               fit: BoxFit.cover,
-
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   height: 190,
@@ -667,8 +658,8 @@ class _ShelterDashboardScreenState extends State<ShelterDashboardScreen> {
 
   Widget _buildNavItem(
     IconData icon,
-    String label,
-    int index, {
+    String label, {
+    required VoidCallback onTap,
     bool isActive = false,
   }) {
     if (isActive) {
@@ -704,11 +695,7 @@ class _ShelterDashboardScreenState extends State<ShelterDashboardScreen> {
     }
 
     return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
-      },
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(

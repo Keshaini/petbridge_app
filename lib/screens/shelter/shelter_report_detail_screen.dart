@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class SightingReportDetailScreen extends StatefulWidget {
   const SightingReportDetailScreen({super.key});
@@ -49,7 +50,7 @@ class _SightingReportDetailScreenState
                           child: _roundButton(
                             icon: Icons.arrow_back,
                             onTap: () {
-                              Navigator.pop(context);
+                              context.pop();
                             },
                           ),
                         ),
@@ -230,7 +231,6 @@ class _SightingReportDetailScreenState
                                     color: Color(0xFF8B8177),
                                   ),
                                 ),
-
                                 Positioned(
                                   left: 16,
                                   bottom: 16,
@@ -327,9 +327,7 @@ class _SightingReportDetailScreenState
                                     color: Color(0xFF85786D),
                                   ),
                                 ),
-
                                 const SizedBox(width: 12),
-
                                 const Expanded(
                                   child: Column(
                                     crossAxisAlignment:

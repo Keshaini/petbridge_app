@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
-import 'map_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -13,6 +13,51 @@ class _SignupScreenState extends State<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _signUp() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showMessage('Please fill in all fields.');
+      return;
+    }
+    if (password.length < 6) {
+      _showMessage('Password must be at least 6 characters.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await AuthService.signUp(
+        name: name,
+        email: email,
+        phone: '', // phone is not collected on this screen
+        password: password,
+      );
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(AuthService.message(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,12 +88,13 @@ class _SignupScreenState extends State<SignupScreen> {
                 style: TextStyle(fontSize: 15, color: Color(0xFF7A6B5D)),
               ),
               const SizedBox(height: 32),
-              // Full Name field
+
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
                   labelText: 'Full Name',
-                  prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF5C3A21)),
+                  prefixIcon: const Icon(Icons.person_outline,
+                      color: Color(0xFF5C3A21)),
                   filled: true,
                   fillColor: const Color(0xFFF5EBE1),
                   border: OutlineInputBorder(
@@ -58,12 +104,14 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Email field
+
               TextField(
                 controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   labelText: 'Email Address',
-                  prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF5C3A21)),
+                  prefixIcon: const Icon(Icons.email_outlined,
+                      color: Color(0xFF5C3A21)),
                   filled: true,
                   fillColor: const Color(0xFFF5EBE1),
                   border: OutlineInputBorder(
@@ -73,13 +121,14 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Password field
+
               TextField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF5C3A21)),
+                  prefixIcon: const Icon(Icons.lock_outline,
+                      color: Color(0xFF5C3A21)),
                   filled: true,
                   fillColor: const Color(0xFFF5EBE1),
                   border: OutlineInputBorder(
@@ -89,7 +138,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              // Sign Up Button
+
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -97,33 +146,40 @@ class _SignupScreenState extends State<SignupScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5C3A21),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MapScreen()),
-                    );
-                  },
-                  child: const Text(
-                    'Sign Up',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  onPressed: _loading ? null : _signUp,
+                  child: _loading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Sign Up',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 20),
-              // Already have an account? Login
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Already have an account? ', style: TextStyle(color: Color(0xFF7A6B5D))),
+                  const Text(
+                    'Already have an account? ',
+                    style: TextStyle(color: Color(0xFF7A6B5D)),
+                  ),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      );
-                    },
+                    onTap: () => context.go('/login'),
                     child: const Text(
                       'Login',
                       style: TextStyle(

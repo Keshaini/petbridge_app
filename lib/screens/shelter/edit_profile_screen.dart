@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -46,7 +47,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     // Return to the Profile screen after saving.
     Future.delayed(const Duration(milliseconds: 700), () {
       if (mounted) {
-        Navigator.pop(context);
+        context.pop();
       }
     });
   }
@@ -71,7 +72,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             color: Color(0xFF2C2420),
           ),
           onPressed: () {
-            Navigator.pop(context);
+            context.pop();
           },
         ),
 

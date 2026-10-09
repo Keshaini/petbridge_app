@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../reporting/create_report_screen.dart';
+import 'package:go_router/go_router.dart';
 
 /// ============================================================================
 /// SCREEN 7: MY PET REPORTS — EMPTY STATE
@@ -31,7 +30,7 @@ class MyPetReportsEmptyScreen extends StatelessWidget {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          Navigator.pop(context);
+                          context.pop();
                         },
                         child: Container(
                           width: 40,
@@ -332,13 +331,7 @@ class MyPetReportsEmptyScreen extends StatelessWidget {
                         elevation: 2,
                       ),
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const CreateReportScreen(),
-                          ),
-                        );
+                        context.push('/create-report');
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -471,6 +464,22 @@ class MyPetReportsEmptyScreen extends StatelessWidget {
               bottom: 20,
               child: _buildPersistentBottomNav(
                 activeIndex: 2,
+                onTap: (index) {
+                  switch (index) {
+                    case 0:
+                      context.go('/home');
+                      break;
+                    case 1:
+                      context.go('/map-search');
+                      break;
+                    case 2:
+                      context.go('/my-reports');
+                      break;
+                    case 3:
+                      context.go('/profile');
+                      break;
+                  }
+                },
               ),
             ),
           ],
@@ -485,6 +494,7 @@ class MyPetReportsEmptyScreen extends StatelessWidget {
 
   static Widget _buildPersistentBottomNav({
     required int activeIndex,
+    required ValueChanged<int> onTap,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -509,21 +519,25 @@ class MyPetReportsEmptyScreen extends StatelessWidget {
             Icons.home_outlined,
             'Home',
             activeIndex == 0,
+            onTap: () => onTap(0),
           ),
           _navIcon(
             Icons.explore_outlined,
             'Map',
             activeIndex == 1,
+            onTap: () => onTap(1),
           ),
           _navIcon(
             Icons.assignment_outlined,
             'Reports',
             activeIndex == 2,
+            onTap: () => onTap(2),
           ),
           _navIcon(
             Icons.person_outline_rounded,
             'Profile',
             activeIndex == 3,
+            onTap: () => onTap(3),
           ),
         ],
       ),
@@ -533,10 +547,13 @@ class MyPetReportsEmptyScreen extends StatelessWidget {
   static Widget _navIcon(
     IconData icon,
     String label,
-    bool isActive,
-  ) {
+    bool isActive, {
+    required VoidCallback onTap,
+  }) {
+    final Widget content;
+
     if (isActive) {
-      return Container(
+      content = Container(
         padding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 8,
@@ -565,26 +582,32 @@ class MyPetReportsEmptyScreen extends StatelessWidget {
           ],
         ),
       );
+    } else {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: const Color(0xFF9E8E84),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF9E8E84),
+            ),
+          ),
+        ],
+      );
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 18,
-          color: const Color(0xFF9E8E84),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF9E8E84),
-          ),
-        ),
-      ],
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: content,
     );
   }
 }

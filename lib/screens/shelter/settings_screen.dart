@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 /// ============================================================================
 /// SCREEN 3: APP SETTINGS SCREEN
@@ -53,7 +54,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                         color: Color(0xFF2C2420),
                       ),
                       onPressed: () {
-                        Navigator.pop(context);
+                        context.pop();
                       },
                     ),
                   ),

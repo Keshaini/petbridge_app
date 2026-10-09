@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
 
   @override
-  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  State<OtpVerificationScreen> createState() =>
+      _OtpVerificationScreenState();
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
@@ -13,13 +15,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       List.generate(4, (_) => TextEditingController());
 
   @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAF6F0),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF5C3A21)),
+        iconTheme: const IconThemeData(
+          color: Color(0xFF5C3A21),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -28,8 +40,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              const Icon(Icons.security, size: 56, color: Color(0xFF5C3A21)),
+
+              const Icon(
+                Icons.security,
+                size: 56,
+                color: Color(0xFF5C3A21),
+              ),
+
               const SizedBox(height: 20),
+
               const Text(
                 'Enter Verification Code 🛡️',
                 style: TextStyle(
@@ -38,12 +57,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   color: Color(0xFF3D2314),
                 ),
               ),
+
               const SizedBox(height: 8),
+
               const Text(
                 'We have sent a 4-digit code to your email address. Enter it below to proceed.',
-                style: TextStyle(fontSize: 15, color: Color(0xFF7A6B5D), height: 1.4),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF7A6B5D),
+                  height: 1.4,
+                ),
               ),
+
               const SizedBox(height: 40),
+
               // 4 Digit Input Boxes
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -82,7 +109,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 30),
+
               // Verify Button
               SizedBox(
                 width: double.infinity,
@@ -97,18 +126,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     elevation: 0,
                   ),
                   onPressed: () {
-                    // Handle OTP Verification success
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Code verified successfully!')),
-                    );
+                    context.go('/reset-password');
                   },
                   child: const Text(
                     'Verify Code',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
+
               const SizedBox(height: 20),
+
               // Resend Code Option
               Center(
                 child: TextButton(

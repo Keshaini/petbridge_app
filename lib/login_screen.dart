@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'signup_screen.dart';
-import 'forgot_password_screen.dart';
-import 'map_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,19 +13,35 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAF6F0),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24.0,
+            vertical: 40,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Center(
-                child: Icon(Icons.pets, size: 64, color: Color(0xFF5C3A21)),
+                child: Icon(
+                  Icons.pets,
+                  size: 64,
+                  color: Color(0xFF5C3A21),
+                ),
               ),
+
               const SizedBox(height: 24),
+
               const Text(
                 'Welcome Back! 👋',
                 style: TextStyle(
@@ -36,18 +50,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Color(0xFF3D2314),
                 ),
               ),
+
               const SizedBox(height: 8),
+
               const Text(
                 'Log in to continue finding and helping pets.',
-                style: TextStyle(fontSize: 15, color: Color(0xFF7A6B5D)),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF7A6B5D),
+                ),
               ),
+
               const SizedBox(height: 32),
+
               // Email
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: 'Email Address',
-                  prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF5C3A21)),
+                  prefixIcon: const Icon(
+                    Icons.email_outlined,
+                    color: Color(0xFF5C3A21),
+                  ),
                   filled: true,
                   fillColor: const Color(0xFFF5EBE1),
                   border: OutlineInputBorder(
@@ -56,14 +80,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
+
               // Password
               TextField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF5C3A21)),
+                  prefixIcon: const Icon(
+                    Icons.lock_outline,
+                    color: Color(0xFF5C3A21),
+                  ),
                   filled: true,
                   fillColor: const Color(0xFFF5EBE1),
                   border: OutlineInputBorder(
@@ -72,24 +101,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 12),
-              // Forgot Password Link
+
+              // Forgot Password
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (context) => const MapScreen()),
-  );
-},
+                    context.push('/forgot-password');
+                  },
                   child: const Text(
                     'Forgot Password?',
-                    style: TextStyle(color: Color(0xFF5C3A21), fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Color(0xFF5C3A21),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
+
               const SizedBox(height: 24),
+
               // Login Button
               SizedBox(
                 width: double.infinity,
@@ -104,26 +137,34 @@ class _LoginScreenState extends State<LoginScreen> {
                     elevation: 0,
                   ),
                   onPressed: () {
-                    // Handle login submission
+                    context.go('/home');
                   },
                   child: const Text(
                     'Login',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
+
               const SizedBox(height: 20),
-              // Don't have an account? Sign Up
+
+              // Sign Up
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Don't have an account? ", style: TextStyle(color: Color(0xFF7A6B5D))),
+                  const Text(
+                    "Don't have an account? ",
+                    style: TextStyle(
+                      color: Color(0xFF7A6B5D),
+                    ),
+                  ),
+
                   GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SignupScreen()),
-                      );
+                      context.push('/signup');
                     },
                     child: const Text(
                       'Sign Up',

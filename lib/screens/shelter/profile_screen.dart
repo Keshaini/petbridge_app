@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-import 'edit_profile_screen.dart';
+import '../../services/auth_service.dart';
 
 /// ============================================================================
 /// USER PROFILE OVERVIEW SCREEN
@@ -43,7 +44,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                       InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () {
-                          Navigator.pop(context);
+                          context.pop();
                         },
                         child: Container(
                           width: 40,
@@ -76,13 +77,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                       InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const EditProfileScreen(),
-                            ),
-                          );
+                          context.push('/edit-profile');
                         },
                         child: Container(
                           width: 40,
@@ -436,6 +431,9 @@ class UserProfileOverviewScreen extends StatelessWidget {
                           title: 'My Reports',
                           badge: '3 active',
                           badgeBg: const Color(0xFFFDD5B7),
+                          onTap: () {
+                            context.go('/my-reports');
+                          },
                         ),
 
                         const Divider(
@@ -452,13 +450,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
                           icon: Icons.person_outline_rounded,
                           title: 'Edit Profile',
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const EditProfileScreen(),
-                              ),
-                            );
+                            context.push('/edit-profile');
                           },
                         ),
 
@@ -508,49 +500,67 @@ class UserProfileOverviewScreen extends StatelessWidget {
                   // LOG OUT
                   // ==========================================================
 
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFDDD9),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
+                  InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () async {
+                      try {
+                        await AuthService.signOut();
+
+                        if (context.mounted) {
+                          context.go('/login');
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Unable to log out. Please try again.',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFDDD9),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.logout_rounded,
+                              size: 16,
+                              color: Color(0xFFD32F2F),
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.logout_rounded,
-                            size: 16,
+                          const SizedBox(width: 14),
+                          const Text(
+                            'Log Out',
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFD32F2F),
+                            ),
+                          ),
+                          const Spacer(),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 18,
                             color: Color(0xFFD32F2F),
                           ),
-                        ),
-
-                        const SizedBox(width: 14),
-
-                        const Text(
-                          'Log Out',
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFD32F2F),
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        const Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 18,
-                          color: Color(0xFFD32F2F),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
 
@@ -585,6 +595,22 @@ class UserProfileOverviewScreen extends StatelessWidget {
               bottom: 20,
               child: _buildPersistentBottomNav(
                 activeIndex: 3,
+                onTap: (index) {
+                  switch (index) {
+                    case 0:
+                      context.go('/home');
+                      break;
+                    case 1:
+                      context.go('/map-search');
+                      break;
+                    case 2:
+                      context.go('/my-reports');
+                      break;
+                    case 3:
+                      context.go('/profile');
+                      break;
+                  }
+                },
               ),
             ),
           ],
@@ -808,6 +834,7 @@ class UserProfileOverviewScreen extends StatelessWidget {
 
   static Widget _buildPersistentBottomNav({
     required int activeIndex,
+    required ValueChanged<int> onTap,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -832,21 +859,25 @@ class UserProfileOverviewScreen extends StatelessWidget {
             Icons.home_outlined,
             'Home',
             activeIndex == 0,
+            onTap: () => onTap(0),
           ),
           _navIcon(
             Icons.explore_outlined,
             'Map',
             activeIndex == 1,
+            onTap: () => onTap(1),
           ),
           _navIcon(
             Icons.assignment_outlined,
             'Reports',
             activeIndex == 2,
+            onTap: () => onTap(2),
           ),
           _navIcon(
             Icons.person_outline_rounded,
             'Profile',
             activeIndex == 3,
+            onTap: () => onTap(3),
           ),
         ],
       ),
@@ -860,17 +891,52 @@ class UserProfileOverviewScreen extends StatelessWidget {
   static Widget _navIcon(
     IconData icon,
     String label,
-    bool isActive,
-  ) {
+    bool isActive, {
+    required VoidCallback onTap,
+  }) {
     if (isActive) {
-      return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 8,
+      return InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFDE1CC),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: const Color(0xFF5A311A),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF5A311A),
+                ),
+              ),
+            ],
+          ),
         ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFDE1CC),
-          borderRadius: BorderRadius.circular(20),
+      );
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 8,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -878,40 +944,20 @@ class UserProfileOverviewScreen extends StatelessWidget {
             Icon(
               icon,
               size: 18,
-              color: const Color(0xFF5A311A),
+              color: const Color(0xFF9E8E84),
             ),
             const SizedBox(height: 2),
             Text(
               label,
               style: const TextStyle(
                 fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF5A311A),
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF9E8E84),
               ),
             ),
           ],
         ),
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 18,
-          color: const Color(0xFF9E8E84),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF9E8E84),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../widgets/primary_button.dart';
@@ -22,12 +24,19 @@ class _EditReportScreenState extends State<EditReportScreen> {
   bool isSaving = false;
 
   String? selectedType;
-  final List<String> reportTypes = ['Lost', 'Found', 'Injured', 'Stray', 'Abandoned'];
+  final List<String> reportTypes = [
+    'Lost',
+    'Found',
+    'Injured',
+    'Stray',
+    'Abandoned',
+  ];
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController speciesController = TextEditingController();
   final TextEditingController locationController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController descriptionController =
+      TextEditingController();
 
   bool hasMedicalAlert = false;
   int photoCount = 1;
@@ -40,6 +49,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
 
   Future<void> _loadReport() async {
     final fetched = await FirestoreService.getReport(widget.reportId);
+
     if (!mounted) return;
 
     if (fetched != null) {
@@ -47,7 +57,8 @@ class _EditReportScreenState extends State<EditReportScreen> {
         report = fetched;
         selectedType = fetched.category;
         descriptionController.text = fetched.description;
-        locationController.text = 'Nugegoda Junction'; // placeholder until map picker is wired up
+        locationController.text =
+            'Nugegoda Junction'; // placeholder until map picker is wired up
         isLoading = false;
       });
     } else {
@@ -67,7 +78,9 @@ class _EditReportScreenState extends State<EditReportScreen> {
   void _changePhoto() {
     // TODO: open image_picker, upload to Cloudinary once connected here too
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Photo picker coming soon')),
+      const SnackBar(
+        content: Text('Photo picker coming soon'),
+      ),
     );
   }
 
@@ -78,32 +91,47 @@ class _EditReportScreenState extends State<EditReportScreen> {
   void _adjustPin() {
     // TODO: open google_maps_flutter picker once wired up
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Map picker coming soon')),
+      const SnackBar(
+        content: Text('Map picker coming soon'),
+      ),
     );
   }
 
   Future<void> _saveChanges() async {
     if (report == null) return;
+
     setState(() => isSaving = true);
 
     try {
-      await FirestoreService.updateReport(widget.reportId, {
-        'category': selectedType ?? report!.category,
-        'description': descriptionController.text.trim(),
-      });
+      await FirestoreService.updateReport(
+        widget.reportId,
+        {
+          'category': selectedType ?? report!.category,
+          'description': descriptionController.text.trim(),
+        },
+      );
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved')),
+        const SnackBar(
+          content: Text('Changes saved'),
+        ),
       );
-      Navigator.of(context).pop();
+
+      context.pop();
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e')),
+        SnackBar(
+          content: Text('Failed to save: $e'),
+        ),
       );
     } finally {
-      if (mounted) setState(() => isSaving = false);
+      if (mounted) {
+        setState(() => isSaving = false);
+      }
     }
   }
 
@@ -120,15 +148,23 @@ class _EditReportScreenState extends State<EditReportScreen> {
     if (confirmed == true) {
       try {
         await FirestoreService.deleteReport(widget.reportId);
+
         if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report deleted')),
+          const SnackBar(
+            content: Text('Report deleted'),
+          ),
         );
-        Navigator.of(context).pop();
+
+        context.pop();
       } catch (e) {
         if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
+          SnackBar(
+            content: Text('Failed to delete: $e'),
+          ),
         );
       }
     }
@@ -138,13 +174,19 @@ class _EditReportScreenState extends State<EditReportScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primary,
+          ),
+        ),
       );
     }
 
     if (report == null) {
       return const Scaffold(
-        body: Center(child: Text('Report not found')),
+        body: Center(
+          child: Text('Report not found'),
+        ),
       );
     }
 
@@ -154,14 +196,23 @@ class _EditReportScreenState extends State<EditReportScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: AppColors.textPrimary,
+          ),
+          onPressed: () => context.pop(),
         ),
-        title: const Text('Edit Report', style: AppTextStyles.heading2),
+        title: const Text(
+          'Edit Report',
+          style: AppTextStyles.heading2,
+        ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
+            icon: const Icon(
+              Icons.more_vert,
+              color: AppColors.textPrimary,
+            ),
             onPressed: () {},
           ),
         ],
@@ -172,17 +223,29 @@ class _EditReportScreenState extends State<EditReportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               decoration: BoxDecoration(
                 color: AppColors.statusFound.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.circle, size: 8, color: AppColors.statusFound),
+                  const Icon(
+                    Icons.circle,
+                    size: 8,
+                    color: AppColors.statusFound,
+                  ),
                   const SizedBox(width: 8),
                   Text(
-                    'Case #${widget.reportId.substring(0, widget.reportId.length > 6 ? 6 : widget.reportId.length)} · ${report!.status}',
+                    'Case #${widget.reportId.substring(
+                      0,
+                      widget.reportId.length > 6
+                          ? 6
+                          : widget.reportId.length,
+                    )} · ${report!.status}',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.statusFound,
                       fontWeight: FontWeight.w600,
@@ -202,11 +265,18 @@ class _EditReportScreenState extends State<EditReportScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Pet Photographs *', style: AppTextStyles.heading2),
-                Text('$photoCount of ${photoCount + 1} uploaded', style: AppTextStyles.caption),
+                Text(
+                  'Pet Photographs *',
+                  style: AppTextStyles.heading2,
+                ),
+                Text(
+                  '$photoCount of ${photoCount + 1} uploaded',
+                  style: AppTextStyles.caption,
+                ),
               ],
             ),
             const SizedBox(height: 10),
+
             Stack(
               children: [
                 Container(
@@ -224,13 +294,27 @@ class _EditReportScreenState extends State<EditReportScreen> {
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: 170,
-                            errorBuilder: (context, error, stackTrace) => const Center(
-                              child: Icon(Icons.pets, size: 42, color: AppColors.primary),
-                            ),
+                            errorBuilder: (
+                              context,
+                              error,
+                              stackTrace,
+                            ) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.pets,
+                                  size: 42,
+                                  color: AppColors.primary,
+                                ),
+                              );
+                            },
                           ),
                         )
                       : const Center(
-                          child: Icon(Icons.pets, size: 42, color: AppColors.primary),
+                          child: Icon(
+                            Icons.pets,
+                            size: 42,
+                            color: AppColors.primary,
+                          ),
                         ),
                 ),
                 Positioned(
@@ -239,7 +323,10 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   child: GestureDetector(
                     onTap: _changePhoto,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(20),
@@ -247,9 +334,19 @@ class _EditReportScreenState extends State<EditReportScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.camera_alt_outlined, size: 14, color: AppColors.textPrimary),
+                          Icon(
+                            Icons.camera_alt_outlined,
+                            size: 14,
+                            color: AppColors.textPrimary,
+                          ),
                           SizedBox(width: 4),
-                          Text('Change Photo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text(
+                            'Change Photo',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -258,6 +355,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
               ],
             ),
             const SizedBox(height: 10),
+
             Row(
               children: [
                 GestureDetector(
@@ -266,46 +364,69 @@ class _EditReportScreenState extends State<EditReportScreen> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(
+                        color: AppColors.border,
+                      ),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.add, color: AppColors.textSecondary),
+                    child: const Icon(
+                      Icons.add,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('Add more photos', style: AppTextStyles.caption),
+                const Text(
+                  'Add more photos',
+                  style: AppTextStyles.caption,
+                ),
               ],
             ),
             const SizedBox(height: 22),
 
-            Text('Report Type / Status *', style: AppTextStyles.heading2),
+            Text(
+              'Report Type / Status *',
+              style: AppTextStyles.heading2,
+            ),
             const SizedBox(height: 10),
+
             Wrap(
               spacing: 10,
               runSpacing: 10,
               children: reportTypes.map((type) {
                 final bool selected = selectedType == type;
+
                 return ChoiceChip(
                   label: Text(type),
                   selected: selected,
-                  onSelected: (_) => setState(() => selectedType = type),
+                  onSelected: (_) {
+                    setState(() => selectedType = type);
+                  },
                   selectedColor: AppColors.primary,
                   backgroundColor: AppColors.cardBackground,
                   labelStyle: TextStyle(
-                    color: selected ? Colors.white : AppColors.textPrimary,
+                    color: selected
+                        ? Colors.white
+                        : AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
-                    side: const BorderSide(color: AppColors.border),
+                    side: const BorderSide(
+                      color: AppColors.border,
+                    ),
                   ),
                 );
               }).toList(),
             ),
             const SizedBox(height: 22),
 
-            Text('Pet Name', style: AppTextStyles.heading2),
+            Text(
+              'Pet Name',
+              style: AppTextStyles.heading2,
+            ),
             const SizedBox(height: 10),
+
             AppTextField(
               hintText: 'Pet name',
               icon: Icons.pets_outlined,
@@ -313,8 +434,12 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
             const SizedBox(height: 18),
 
-            Text('Species, Breed & Vital Status', style: AppTextStyles.heading2),
+            Text(
+              'Species, Breed & Vital Status',
+              style: AppTextStyles.heading2,
+            ),
             const SizedBox(height: 10),
+
             AppTextField(
               hintText: 'Species, breed and vital status',
               icon: Icons.info_outline,
@@ -325,23 +450,35 @@ class _EditReportScreenState extends State<EditReportScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Last Seen Location *', style: AppTextStyles.heading2),
+                Text(
+                  'Last Seen Location *',
+                  style: AppTextStyles.heading2,
+                ),
                 Row(
                   children: const [
-                    Icon(Icons.lock_outline, size: 14, color: AppColors.textSecondary),
+                    Icon(
+                      Icons.lock_outline,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
                     SizedBox(width: 4),
-                    Text('GPS locked', style: AppTextStyles.caption),
+                    Text(
+                      'GPS locked',
+                      style: AppTextStyles.caption,
+                    ),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 10),
+
             AppTextField(
               hintText: 'Location',
               icon: Icons.location_on_outlined,
               controller: locationController,
             ),
             const SizedBox(height: 10),
+
             Stack(
               children: [
                 Container(
@@ -350,10 +487,16 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(
+                      color: AppColors.border,
+                    ),
                   ),
                   child: const Center(
-                    child: Icon(Icons.map_outlined, size: 32, color: AppColors.textSecondary),
+                    child: Icon(
+                      Icons.map_outlined,
+                      size: 32,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
                 Positioned(
@@ -362,14 +505,20 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   child: GestureDetector(
                     onTap: _adjustPin,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.accentPeach,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
                         'Adjust pin',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -378,8 +527,12 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
             const SizedBox(height: 18),
 
-            Text('Pet Description & Distinct Marks', style: AppTextStyles.heading2),
+            Text(
+              'Pet Description & Distinct Marks',
+              style: AppTextStyles.heading2,
+            ),
             const SizedBox(height: 10),
+
             TextField(
               controller: descriptionController,
               maxLines: 4,
@@ -388,7 +541,9 @@ class _EditReportScreenState extends State<EditReportScreen> {
                 fillColor: AppColors.cardBackground,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: const BorderSide(
+                    color: AppColors.border,
+                  ),
                 ),
               ),
             ),
@@ -399,12 +554,16 @@ class _EditReportScreenState extends State<EditReportScreen> {
               onPressed: isSaving ? () {} : _saveChanges,
             ),
             const SizedBox(height: 10),
+
             Center(
               child: TextButton(
                 onPressed: _deleteReport,
                 child: const Text(
                   'Delete Report',
-                  style: TextStyle(color: AppColors.statusLost, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: AppColors.statusLost,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),

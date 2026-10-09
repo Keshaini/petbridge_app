@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../widgets/status_pill.dart';
@@ -28,7 +30,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Future<void> _loadReport() async {
     final fetched = await FirestoreService.getReport(widget.reportId);
+
     if (!mounted) return;
+
     setState(() {
       report = fetched;
       isLoading = false;
@@ -37,11 +41,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Future<void> _markAsResolved() async {
     if (report == null) return;
+
     setState(() => isUpdating = true);
 
     try {
-      await FirestoreService.updateReport(widget.reportId, {'status': 'Resolved'});
+      await FirestoreService.updateReport(
+        widget.reportId,
+        {'status': 'Resolved'},
+      );
+
       if (!mounted) return;
+
       setState(() {
         report = ReportModel(
           reportId: report!.reportId,
@@ -56,23 +66,33 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           claimedBy: report!.claimedBy,
         );
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marked as resolved')),
+        const SnackBar(
+          content: Text('Marked as resolved'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update: $e')),
+        SnackBar(
+          content: Text('Failed to update: $e'),
+        ),
       );
     } finally {
-      if (mounted) setState(() => isUpdating = false);
+      if (mounted) {
+        setState(() => isUpdating = false);
+      }
     }
   }
 
   void _messageReporter() {
     // TODO: navigate to chat screen with a thread tied to this report's reporter
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening chat (coming soon)')),
+      const SnackBar(
+        content: Text('Opening chat (coming soon)'),
+      ),
     );
   }
 
@@ -80,13 +100,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primary,
+          ),
+        ),
       );
     }
 
     if (report == null) {
       return const Scaffold(
-        body: Center(child: Text('Report not found')),
+        body: Center(
+          child: Text('Report not found'),
+        ),
       );
     }
 
@@ -98,8 +124,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: AppColors.textPrimary,
+          ),
+          onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
@@ -107,7 +136,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               isSaved ? Icons.bookmark : Icons.bookmark_border,
               color: AppColors.textPrimary,
             ),
-            onPressed: () => setState(() => isSaved = !isSaved),
+            onPressed: () {
+              setState(() => isSaved = !isSaved);
+            },
           ),
         ],
       ),
@@ -131,27 +162,57 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: 200,
-                        errorBuilder: (context, error, stackTrace) => const Center(
-                          child: Icon(Icons.pets, size: 48, color: AppColors.primary),
-                        ),
+                        errorBuilder: (
+                          context,
+                          error,
+                          stackTrace,
+                        ) {
+                          return const Center(
+                            child: Icon(
+                              Icons.pets,
+                              size: 48,
+                              color: AppColors.primary,
+                            ),
+                          );
+                        },
                       ),
                     )
                   : const Center(
-                      child: Icon(Icons.pets, size: 48, color: AppColors.primary),
+                      child: Icon(
+                        Icons.pets,
+                        size: 48,
+                        color: AppColors.primary,
+                      ),
                     ),
             ),
             const SizedBox(height: 16),
 
-            Text('Report', style: AppTextStyles.heading1),
+            Text(
+              'Report',
+              style: AppTextStyles.heading1,
+            ),
             const SizedBox(height: 8),
-            StatusPill(label: isResolved ? 'RESOLVED' : report!.category),
+
+            StatusPill(
+              label: isResolved ? 'RESOLVED' : report!.category,
+            ),
             const SizedBox(height: 20),
 
             Row(
               children: [
-                Expanded(child: _infoCard('STATUS', report!.status)),
+                Expanded(
+                  child: _infoCard(
+                    'STATUS',
+                    report!.status,
+                  ),
+                ),
                 const SizedBox(width: 10),
-                Expanded(child: _infoCard('CATEGORY', report!.category)),
+                Expanded(
+                  child: _infoCard(
+                    'CATEGORY',
+                    report!.category,
+                  ),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _infoCard(
@@ -163,27 +224,43 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            Text('Description', style: AppTextStyles.heading2),
-            const SizedBox(height: 10),
             Text(
-              report!.description.isEmpty ? 'No description provided.' : report!.description,
+              'Description',
+              style: AppTextStyles.heading2,
+            ),
+            const SizedBox(height: 10),
+
+            Text(
+              report!.description.isEmpty
+                  ? 'No description provided.'
+                  : report!.description,
               style: AppTextStyles.bodyText,
             ),
             const SizedBox(height: 24),
 
-            Text('Sighting area', style: AppTextStyles.heading2),
+            Text(
+              'Sighting area',
+              style: AppTextStyles.heading2,
+            ),
             const SizedBox(height: 12),
+
             Container(
               width: double.infinity,
               height: 140,
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(
+                  color: AppColors.border,
+                ),
               ),
               child: const Center(
                 // TODO: replace with google_maps_flutter radius view
-                child: Icon(Icons.map_outlined, size: 40, color: AppColors.textSecondary),
+                child: Icon(
+                  Icons.map_outlined,
+                  size: 40,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -194,25 +271,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   child: OutlinedButton(
                     onPressed: _messageReporter,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.border),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(
+                        color: AppColors.border,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: const Text(
                       'Message reporter',
-                      style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
+
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: (isResolved || isUpdating) ? null : _markAsResolved,
+                    onPressed: (isResolved || isUpdating)
+                        ? null
+                        : _markAsResolved,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -220,8 +309,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     child: Text(
                       isUpdating
                           ? 'Updating...'
-                          : (isResolved ? 'Resolved' : 'Mark as resolved'),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          : (isResolved
+                              ? 'Resolved'
+                              : 'Mark as resolved'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -236,19 +330,29 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Widget _infoCard(String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: 8,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: AppColors.border,
+        ),
       ),
       child: Column(
         children: [
-          Text(label, style: AppTextStyles.caption),
+          Text(
+            label,
+            style: AppTextStyles.caption,
+          ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: AppTextStyles.bodyText.copyWith(fontWeight: FontWeight.w700),
+            style: AppTextStyles.bodyText.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
           ),
@@ -259,8 +363,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   String _timeAgo(DateTime time) {
     final diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
+
+    if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    }
+
+    if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    }
+
     return '${diff.inDays}d ago';
   }
 }
