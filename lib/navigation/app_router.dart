@@ -1,9 +1,5 @@
-
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
-
-import '../models/report_model.dart';
 
 // Authentication screens
 import '../splash_screen.dart';
@@ -106,21 +102,18 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const CreateReportScreen(),
     ),
 
+    GoRoute(
+      path: '/my-reports',
+      builder: (context, state) => const MyReportsScreen(),
+    ),
+
     // Show the newly submitted report details.
     GoRoute(
-      path: '/report-details',
+      path: '/report-details/:reportId',
       builder: (context, state) {
-        final extra = state.extra;
+        final reportId = state.pathParameters['reportId']!;
 
-        if (extra is! ReportModel) {
-          return const Scaffold(
-            body: Center(
-              child: Text('Report details are unavailable.'),
-            ),
-          );
-        }
-
-        return ReportDetailsScreen(report: extra);
+        return ReportDetailScreen(reportId: reportId);
       },
     ),
 
