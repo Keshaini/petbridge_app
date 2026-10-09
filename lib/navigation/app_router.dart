@@ -1,7 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 
-// Auth screens
+import '../models/report_model.dart';
+
+// Authentication screens
 import '../splash_screen.dart';
 import '../onboarding_screen.dart';
 import '../login_screen.dart';
@@ -28,7 +31,6 @@ import '../screens/shelter/profile_screen.dart';
 import '../screens/shelter/edit_profile_screen.dart';
 import '../screens/shelter/chat_screen.dart';
 
-/// Screens a logged-out user is allowed to see.
 const List<String> _publicRoutes = [
   '/splash',
   '/onboarding',
@@ -41,27 +43,25 @@ const List<String> _publicRoutes = [
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
-
   redirect: (context, state) {
-    final bool loggedIn = FirebaseAuth.instance.currentUser != null;
-    final String loc = state.matchedLocation;
+    final loggedIn = FirebaseAuth.instance.currentUser != null;
+    final loc = state.matchedLocation;
 
-    // Logged out and opening an app screen -> send to Login
-    if (!loggedIn && !_publicRoutes.contains(loc)) return '/login';
+    if (!loggedIn && !_publicRoutes.contains(loc)) {
+      return '/login';
+    }
 
-    // Logged in and opening Onboarding, Login or Sign Up -> send to Home
     if (loggedIn &&
-        (loc == '/onboarding' || loc == '/login' || loc == '/signup')) {
+        (loc == '/onboarding' ||
+            loc == '/login' ||
+            loc == '/signup')) {
       return '/home';
     }
 
-    return null; // no redirect
+    return null;
   },
-
   routes: [
-    // =========================
     // AUTHENTICATION
-    // =========================
     GoRoute(
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
@@ -91,24 +91,48 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const ResetPasswordScreen(),
     ),
 
-    // =========================
     // HOME
-    // =========================
     GoRoute(
       path: '/home',
       builder: (context, state) => const MapScreen(),
     ),
 
-    // =========================
     // REPORTING
-    // =========================
     GoRoute(
       path: '/create-report',
       builder: (context, state) => const CreateReportScreen(),
     ),
     GoRoute(
-      path: '/my-reports',
-      builder: (context, state) => const MyReportsScreen(),
+      path: '/report-details',
+      builder: (context, state) {
+        final extra = state.extra;
+
+        if (extra is! ReportModel) {
+          return const Scaffold(
+            body: Center(
+              child: Text('Report details are unavailable.'),
+            ),
+          );
+        }
+
+        return ReportDetailsScreen(report: extra);
+      },
+    ),
+    GoRoute(
+      path: '/report-details',
+      builder: (context, state) {
+        final extra = state.extra;
+
+        if (extra is! ReportModel) {
+          return const Scaffold(
+            body: Center(
+              child: Text('Report details are unavailable.'),
+            ),
+          );
+        }
+
+        return ReportDetailsScreen(report: extra);
+      },
     ),
     GoRoute(
       path: '/report-detail/:reportId',
@@ -125,17 +149,13 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-    // =========================
     // SEARCH
-    // =========================
     GoRoute(
       path: '/map-search',
       builder: (context, state) => const MapSearchScreen(),
     ),
 
-    // =========================
     // SHELTER
-    // =========================
     GoRoute(
       path: '/shelter-dashboard',
       builder: (context, state) => const ShelterDashboardScreen(),
