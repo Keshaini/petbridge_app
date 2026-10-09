@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -115,7 +116,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     }
   }
 
-  /// Opens the actual OpenStreetMap picker.
+  /// Opens the OpenStreetMap picker and updates the selected location.
   Future<void> _adjustPin() async {
     final result = await Navigator.of(context)
         .push<Map<String, dynamic>>(
@@ -137,8 +138,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     setState(() {
       selectedLocation = location;
 
-      locationLabel = result['label'] as String? ??
-          'Selected map location';
+      locationLabel =
+          result['label'] as String? ?? 'Selected map location';
 
       locationAccuracy =
           'Map coordinates · '
@@ -219,13 +220,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Report submitted successfully.'),
-        ),
-      );
-
-      context.pop();
+      // Navigate to the details screen after the report is saved.
+      // The report details route must accept a ReportModel in state.extra.
+      context.go('/my-reports');
     } catch (error) {
       if (!mounted) return;
 
@@ -296,7 +293,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Photo upload.
                     GestureDetector(
                       onTap: isUploadingPhoto
                           ? null
@@ -370,10 +366,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                               ),
                       ),
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Report category.
                     Text(
                       'What are you reporting?',
                       style: AppTextStyles.heading2,
@@ -412,10 +405,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         );
                       }).toList(),
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Animal type.
                     Text(
                       'Animal Type',
                       style: AppTextStyles.heading2,
@@ -473,10 +463,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         );
                       }).toList(),
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Pet name.
                     Text(
                       'Pet Name (optional)',
                       style: AppTextStyles.heading2,
@@ -487,10 +474,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       icon: Icons.pets_outlined,
                       controller: nameController,
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Location picker.
                     Text(
                       'Where was it seen?',
                       style: AppTextStyles.heading2,
@@ -570,10 +554,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Description.
                     Text(
                       'Description (optional)',
                       style: AppTextStyles.heading2,
@@ -596,13 +577,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
-
             PrimaryButton(
               label: isSubmitting
                   ? 'Submitting...'

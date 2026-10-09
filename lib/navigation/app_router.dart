@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
@@ -43,6 +44,7 @@ const List<String> _publicRoutes = [
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
+
   redirect: (context, state) {
     final loggedIn = FirebaseAuth.instance.currentUser != null;
     final loc = state.matchedLocation;
@@ -60,6 +62,7 @@ final GoRouter appRouter = GoRouter(
 
     return null;
   },
+
   routes: [
     // AUTHENTICATION
     GoRoute(
@@ -102,6 +105,8 @@ final GoRouter appRouter = GoRouter(
       path: '/create-report',
       builder: (context, state) => const CreateReportScreen(),
     ),
+
+    // Show the newly submitted report details.
     GoRoute(
       path: '/report-details',
       builder: (context, state) {
@@ -118,22 +123,8 @@ final GoRouter appRouter = GoRouter(
         return ReportDetailsScreen(report: extra);
       },
     ),
-    GoRoute(
-      path: '/report-details',
-      builder: (context, state) {
-        final extra = state.extra;
 
-        if (extra is! ReportModel) {
-          return const Scaffold(
-            body: Center(
-              child: Text('Report details are unavailable.'),
-            ),
-          );
-        }
-
-        return ReportDetailsScreen(report: extra);
-      },
-    ),
+    // Existing report detail route, using the report ID.
     GoRoute(
       path: '/report-detail/:reportId',
       builder: (context, state) {
@@ -141,6 +132,7 @@ final GoRouter appRouter = GoRouter(
         return ReportDetailScreen(reportId: reportId);
       },
     ),
+
     GoRoute(
       path: '/edit-report/:reportId',
       builder: (context, state) {
