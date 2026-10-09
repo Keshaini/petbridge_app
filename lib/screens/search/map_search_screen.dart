@@ -1,13 +1,14 @@
+
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/report_model.dart';
@@ -18,10 +19,15 @@ class MapSearchScreen extends StatefulWidget {
     super.key,
     this.initialLocation,
     this.initialLocationLabel,
+    this.selectionMode = false,
   });
 
   final GeoPoint? initialLocation;
   final String? initialLocationLabel;
+
+  /// True when opened from Create Report to select a pet's location.
+  /// False preserves the normal nearby-report search screen.
+  final bool selectionMode;
 
   @override
   State<MapSearchScreen> createState() => _MapSearchScreenState();
@@ -36,15 +42,21 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
   double _distance = _defaultDistance;
   String _dateRange = _defaultDateRange;
   String? _species;
+
   DateTimeRange? _selectedDateRange;
   GeoPoint? _selectedLocation;
   String? _locationLabel;
+
   bool _showFilters = false;
   bool _showLocationPicker = true;
   bool _isLocating = false;
   bool _isSearching = false;
+
   List<ReportModel> _filteredReports = const [];
-  final _locationController = TextEditingController();
+  List<ReportModel> _latestReports = const [];
+
+  final TextEditingController _locationController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -59,8 +71,14 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
     _selectedLocation = widget.initialLocation;
     _locationLabel = widget.initialLocationLabel;
-    _showLocationPicker = widget.initialLocation == null;
-    _showFilters = widget.initialLocation != null;
+
+    // In picker mode, the user must explicitly choose and confirm
+    // a location, even if an initial location was supplied.
+    _showLocationPicker =
+        widget.selectionMode || widget.initialLocation == null;
+
+    _showFilters =
+        !widget.selectionMode && widget.initialLocation != null;
   }
 
   @override
@@ -70,13 +88,13 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
   }
 
   void _resetFilters() {
+    final today = DateTime.now();
+
     setState(() {
       _category = _defaultCategory;
       _distance = _defaultDistance;
       _dateRange = _defaultDateRange;
       _species = null;
-
-      final today = DateTime.now();
 
       _selectedDateRange = DateTimeRange(
         start: today.subtract(const Duration(days: 7)),
@@ -86,21 +104,22 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
   }
 
   void _applyFilters() {
-    final location = _selectedLocation;
-
-    if (location == null) return;
+    if (_selectedLocation == null) return;
 
     final reports = _reportsForSelectedFilters(_latestReports);
 
-    setState(() => _showFilters = false);
-    setState(() => _filteredReports = reports);
+    setState(() {
+      _showFilters = false;
+      _filteredReports = reports;
+    });
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
-            '${reports.length} reports found near $_locationLabel',
+            '${reports.length} reports found near '
+            '${_locationLabel ?? 'selected location'}',
           ),
         ),
       );
@@ -113,16 +132,13 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
       context: context,
       firstDate: today.subtract(const Duration(days: 365)),
       lastDate: today,
-      initialDateRange: DateTimeRange(
-        start: today.subtract(const Duration(days: 7)),
-        end: today,
-      ),
+      initialDateRange: _selectedDateRange,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: AppColors.primary,
-            surface: AppColors.cardBackground,
-          ),
+                primary: AppColors.primary,
+                surface: AppColors.cardBackground,
+              ),
         ),
         child: child!,
       ),
@@ -138,8 +154,6 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     });
   }
 
-  List<ReportModel> _latestReports = const [];
-
   List<ReportModel> _reportsForSelectedFilters(
     List<ReportModel> reports,
   ) {
@@ -148,32 +162,36 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     if (location == null) return const [];
 
     return reports.where((report) {
-      final categoryMatches =
-          _category == _defaultCategory || report.category == _category;
+      final categoryMatches = _category == _defaultCategory ||
+          report.category == _category;
 
       final distanceMatches =
-          _distanceBetween(location, report.location) <= _distance * 1000;
+          _distanceBetween(location, report.location) <=
+              _distance * 1000;
 
-      final dateMatches =
-          _selectedDateRange == null ||
-          !report.timestamp.isBefore(_selectedDateRange!.start) &&
+      final dateMatches = _selectedDateRange == null ||
+          (!report.timestamp.isBefore(_selectedDateRange!.start) &&
               !report.timestamp.isAfter(
                 _selectedDateRange!.end
                     .add(const Duration(days: 1))
                     .subtract(const Duration(microseconds: 1)),
+              ));
+
+      final speciesMatches = _species == null ||
+          _species!.isEmpty ||
+          report.petName.toLowerCase().contains(
+                _species!.toLowerCase(),
               );
 
       return report.status.toLowerCase() != 'resolved' &&
           categoryMatches &&
           distanceMatches &&
-          dateMatches;
+          dateMatches &&
+          speciesMatches;
     }).toList();
   }
 
-  double _distanceBetween(
-    GeoPoint first,
-    GeoPoint second,
-  ) {
+  double _distanceBetween(GeoPoint first, GeoPoint second) {
     return Geolocator.distanceBetween(
       first.latitude,
       first.longitude,
@@ -203,11 +221,10 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
       final position = await Geolocator.getCurrentPosition();
 
+      if (!mounted) return;
+
       _setLocation(
-        GeoPoint(
-          position.latitude,
-          position.longitude,
-        ),
+        GeoPoint(position.latitude, position.longitude),
         'Current location',
       );
     } catch (error) {
@@ -215,9 +232,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Could not use current location: $error',
-          ),
+          content: Text('Could not use current location: $error'),
         ),
       );
     } finally {
@@ -230,7 +245,9 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
   Future<void> _searchLocation() async {
     final query = _locationController.text.trim();
 
-    if (query.isEmpty) return;
+    if (query.isEmpty || _isSearching) return;
+
+    FocusScope.of(context).unfocus();
 
     setState(() => _isSearching = true);
 
@@ -264,21 +281,21 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
       final result = results.first as Map<String, dynamic>;
 
+      if (!mounted) return;
+
       _setLocation(
         GeoPoint(
           double.parse(result['lat'] as String),
           double.parse(result['lon'] as String),
         ),
-        result['display_name'] as String,
+        result['display_name'] as String? ?? query,
       );
     } catch (error) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Could not search location: $error',
-          ),
+          content: Text('Could not search location: $error'),
         ),
       );
     } finally {
@@ -288,15 +305,16 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     }
   }
 
-  void _setLocation(
-    GeoPoint location,
-    String label,
-  ) {
+  void _setLocation(GeoPoint location, String label) {
     setState(() {
       _selectedLocation = location;
       _locationLabel = label;
       _showLocationPicker = false;
-      _showFilters = true;
+
+      // Do not display report filters in the location-picker flow.
+      _showFilters =
+          !widget.selectionMode && _selectedLocation != null;
+
       _filteredReports = const [];
     });
   }
@@ -305,6 +323,24 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     setState(() {
       _showLocationPicker = true;
       _showFilters = false;
+    });
+  }
+
+  void _confirmLocation() {
+    final location = _selectedLocation;
+
+    if (location == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a location first.'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).pop<Map<String, dynamic>>({
+      'location': location,
+      'label': _locationLabel ?? 'Selected map location',
     });
   }
 
@@ -322,10 +358,23 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
             children: [
               Positioned.fill(
                 child: _OpenStreetMapView(
-                  reports: _latestReports,
+                  reports: widget.selectionMode
+                      ? const []
+                      : _latestReports,
                   selectedLocation: _selectedLocation,
+                  onMapTap: widget.selectionMode
+                      ? (point) => _setLocation(
+                            GeoPoint(
+                              point.latitude,
+                              point.longitude,
+                            ),
+                            'Selected map location',
+                          )
+                      : null,
                 ),
               ),
+
+              // Top search bar.
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
@@ -335,11 +384,14 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
                     0,
                   ),
                   child: _SearchBar(
-                    label: _locationLabel ?? 'Search area or pet name',
+                    label: _locationLabel ??
+                        'Search area or pet name',
                     onTap: _openLocationPicker,
                   ),
                 ),
               ),
+
+              // Search for a place or use the device location.
               if (_showLocationPicker)
                 _LocationPicker(
                   controller: _locationController,
@@ -347,18 +399,31 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
                   isSearching: _isSearching,
                   onCurrentLocation: _useCurrentLocation,
                   onSearch: _searchLocation,
+                  selectionMode: widget.selectionMode,
+                  onCancel: widget.selectionMode
+                      ? () => Navigator.of(context).pop()
+                      : null,
                 ),
-              if (_showFilters)
+
+              // Location-picker confirmation.
+              if (widget.selectionMode &&
+                  !_showLocationPicker &&
+                  _selectedLocation != null)
+                _ConfirmLocation(
+                  label: _locationLabel ?? 'Selected location',
+                  location: _selectedLocation!,
+                  onChangeLocation: _openLocationPicker,
+                  onConfirm: _confirmLocation,
+                ),
+
+              // Existing report search filters.
+              if (!widget.selectionMode && _showFilters)
                 DraggableScrollableSheet(
                   initialChildSize: 0.64,
                   minChildSize: 0.34,
                   maxChildSize: 0.84,
                   snap: true,
-                  snapSizes: const [
-                    0.34,
-                    0.64,
-                    0.84,
-                  ],
+                  snapSizes: const [0.34, 0.64, 0.84],
                   builder: (context, scrollController) =>
                       _FilterSheet(
                     scrollController: scrollController,
@@ -377,12 +442,15 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
                     onApply: _applyFilters,
                   ),
                 ),
-              if (!_showFilters &&
+
+              // Existing nearby report results.
+              if (!widget.selectionMode &&
+                  !_showFilters &&
                   !_showLocationPicker &&
                   _selectedLocation != null)
                 _ReportResults(
                   reports: _filteredReports,
-                  locationLabel: _locationLabel!,
+                  locationLabel: _locationLabel ?? 'Selected location',
                   onChangeLocation: _openLocationPicker,
                 ),
             ],
@@ -397,25 +465,24 @@ class _OpenStreetMapView extends StatelessWidget {
   const _OpenStreetMapView({
     required this.reports,
     required this.selectedLocation,
+    this.onMapTap,
   });
 
   final List<ReportModel> reports;
   final GeoPoint? selectedLocation;
+  final ValueChanged<LatLng>? onMapTap;
 
-  static const _defaultCenter = LatLng(
-    6.8649,
-    79.8997,
-  );
+  static const _defaultCenter = LatLng(6.8649, 79.8997);
 
   @override
   Widget build(BuildContext context) {
     final center = selectedLocation == null
         ? (reports.isEmpty
-              ? _defaultCenter
-              : LatLng(
-                  reports.first.location.latitude,
-                  reports.first.location.longitude,
-                ))
+            ? _defaultCenter
+            : LatLng(
+                reports.first.location.latitude,
+                reports.first.location.longitude,
+              ))
         : LatLng(
             selectedLocation!.latitude,
             selectedLocation!.longitude,
@@ -448,8 +515,8 @@ class _OpenStreetMapView extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.my_location,
-              size: 26,
+              Icons.location_on,
+              size: 34,
               color: AppColors.statusLost,
             ),
           ),
@@ -461,7 +528,10 @@ class _OpenStreetMapView extends StatelessWidget {
         FlutterMap(
           options: MapOptions(
             initialCenter: center,
-            initialZoom: selectedLocation == null ? 12 : 13,
+            initialZoom: selectedLocation == null ? 12 : 15,
+            onTap: (tapPosition, point) {
+              onMapTap?.call(point);
+            },
           ),
           children: [
             TileLayer(
@@ -469,9 +539,7 @@ class _OpenStreetMapView extends StatelessWidget {
                   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.petbridge.app',
             ),
-            MarkerLayer(
-              markers: markers,
-            ),
+            MarkerLayer(markers: markers),
           ],
         ),
         Positioned(
@@ -516,25 +584,29 @@ class _SearchBar extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
             horizontal: 17,
             vertical: 14,
           ),
           child: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.search_rounded,
                 color: AppColors.primary,
                 size: 23,
               ),
-              SizedBox(width: 10),
-              Text(
-                'Search area or pet name',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -552,6 +624,8 @@ class _LocationPicker extends StatelessWidget {
     required this.isSearching,
     required this.onCurrentLocation,
     required this.onSearch,
+    required this.selectionMode,
+    this.onCancel,
   });
 
   final TextEditingController controller;
@@ -559,6 +633,8 @@ class _LocationPicker extends StatelessWidget {
   final bool isSearching;
   final VoidCallback onCurrentLocation;
   final VoidCallback onSearch;
+  final bool selectionMode;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -566,12 +642,7 @@ class _LocationPicker extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            20,
-            0,
-            20,
-            24,
-          ),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           child: Material(
             color: AppColors.cardBackground,
             elevation: 18,
@@ -582,14 +653,28 @@ class _LocationPicker extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Choose a location',
-                    style: _headingStyle,
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Choose a location',
+                          style: _headingStyle,
+                        ),
+                      ),
+                      if (selectionMode)
+                        IconButton(
+                          onPressed: onCancel,
+                          icon: const Icon(Icons.close),
+                          tooltip: 'Cancel',
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Pick your current location or search for an area to find nearby reports.',
-                    style: TextStyle(
+                  Text(
+                    selectionMode
+                        ? 'Search for a place or tap directly on the map to mark where the pet was seen.'
+                        : 'Pick your current location or search for an area to find nearby reports.',
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                     ),
                   ),
@@ -600,14 +685,16 @@ class _LocationPicker extends StatelessWidget {
                     onSubmitted: (_) => onSearch(),
                     decoration: InputDecoration(
                       hintText: 'Search area or city',
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                      ),
+                      prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: isSearching
                           ? const Padding(
                               padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : IconButton(
@@ -638,17 +725,97 @@ class _LocationPicker extends StatelessWidget {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Icon(
-                              Icons.my_location_rounded,
-                            ),
-                      label: const Text(
-                        'Use current location',
-                      ),
+                          : const Icon(Icons.my_location_rounded),
+                      label: const Text('Use current location'),
                     ),
                   ),
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfirmLocation extends StatelessWidget {
+  const _ConfirmLocation({
+    required this.label,
+    required this.location,
+    required this.onChangeLocation,
+    required this.onConfirm,
+  });
+
+  final String label;
+  final GeoPoint location;
+  final VoidCallback onChangeLocation;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 14,
+                offset: Offset(0, -3),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Confirm pet location',
+                style: _headingStyle,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Lat: ${location.latitude.toStringAsFixed(6)}\n'
+                'Lng: ${location.longitude.toStringAsFixed(6)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onChangeLocation,
+                      child: const Text('Change'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: onConfirm,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                      ),
+                      child: const Text('Use location'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -673,15 +840,8 @@ class _ReportResults extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       child: SafeArea(
         child: Container(
-          constraints: const BoxConstraints(
-            maxHeight: 360,
-          ),
-          margin: const EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            16,
-          ),
+          constraints: const BoxConstraints(maxHeight: 360),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(24),
@@ -698,12 +858,7 @@ class _ReportResults extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  18,
-                  16,
-                  12,
-                  8,
-                ),
+                padding: const EdgeInsets.fromLTRB(18, 16, 12, 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -726,14 +881,10 @@ class _ReportResults extends StatelessWidget {
               ),
               if (reports.isEmpty)
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    18,
-                    12,
-                    18,
-                    24,
-                  ),
+                  padding: EdgeInsets.fromLTRB(18, 12, 18, 24),
                   child: Text(
-                    'No active reports match these filters. Try increasing the distance or changing the category.',
+                    'No active reports match these filters. '
+                    'Try increasing the distance or changing the category.',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                     ),
@@ -742,12 +893,7 @@ class _ReportResults extends StatelessWidget {
               else
                 Flexible(
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      14,
-                      0,
-                      14,
-                      14,
-                    ),
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                     shrinkWrap: true,
                     itemCount: reports.length,
                     separatorBuilder: (_, _) =>
@@ -767,8 +913,7 @@ class _ReportResults extends StatelessWidget {
                           backgroundImage: report.photoUrl.isNotEmpty
                               ? NetworkImage(report.photoUrl)
                               : null,
-                          backgroundColor:
-                              AppColors.accentPeach,
+                          backgroundColor: AppColors.accentPeach,
                           child: report.photoUrl.isEmpty
                               ? const Icon(
                                   Icons.pets,
@@ -785,7 +930,8 @@ class _ReportResults extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          '${report.category} · ${_formatReportDate(report.timestamp)}',
+                          '${report.category} · '
+                          '${_formatReportDate(report.timestamp)}',
                         ),
                         trailing: const Icon(
                           Icons.chevron_right_rounded,
@@ -858,12 +1004,7 @@ class _FilterSheet extends StatelessWidget {
       ),
       child: ListView(
         controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(
-          20,
-          12,
-          20,
-          10,
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
         children: [
           Center(
             child: Container(
@@ -877,13 +1018,9 @@ class _FilterSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Filters',
-                style: _headingStyle,
-              ),
+              const Text('Filters', style: _headingStyle),
               TextButton(
                 onPressed: onReset,
                 child: const Text(
@@ -906,8 +1043,7 @@ class _FilterSheet extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const _SectionLabel('DISTANCE'),
               Text(
@@ -924,11 +1060,9 @@ class _FilterSheet extends StatelessWidget {
               activeTrackColor: AppColors.primary,
               inactiveTrackColor: const Color(0xFFEED9BB),
               thumbColor: AppColors.primary,
-              overlayColor:
-                  AppColors.primary.withAlpha(25),
+              overlayColor: AppColors.primary.withAlpha(25),
               trackHeight: 5,
-              thumbShape:
-                  const RoundSliderThumbShape(
+              thumbShape: const RoundSliderThumbShape(
                 enabledThumbRadius: 9,
               ),
             ),
@@ -940,17 +1074,10 @@ class _FilterSheet extends StatelessWidget {
             ),
           ),
           const Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '1 km',
-                style: _rangeStyle,
-              ),
-              Text(
-                '20+ km',
-                style: _rangeStyle,
-              ),
+              Text('1 km', style: _rangeStyle),
+              Text('20+ km', style: _rangeStyle),
             ],
           ),
           const SizedBox(height: 22),
@@ -1011,11 +1138,9 @@ class _SectionLabel extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) =>
-      Text(
-        label,
-        style: _sectionStyle,
-      );
+  Widget build(BuildContext context) {
+    return Text(label, style: _sectionStyle);
+  }
 }
 
 class _ChipWrap extends StatelessWidget {
@@ -1041,8 +1166,7 @@ class _ChipWrap extends StatelessWidget {
               selected: value == selected,
               onSelected: (_) => onSelected(value),
               selectedColor: AppColors.primary,
-              backgroundColor:
-                  AppColors.cardBackground,
+              backgroundColor: AppColors.cardBackground,
               side: BorderSide(
                 color: value == selected
                     ? AppColors.primary
@@ -1058,9 +1182,7 @@ class _ChipWrap extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
               showCheckmark: false,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
             ),
           )
           .toList(),
@@ -1080,12 +1202,7 @@ class _DateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        13,
-        7,
-        7,
-        7,
-      ),
+      padding: const EdgeInsets.fromLTRB(13, 7, 7, 7),
       decoration: BoxDecoration(
         border: Border.all(
           color: const Color(0xFFE5D9CC),

@@ -1,9 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../services/auth_service.dart';
 
+import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../widgets/primary_button.dart';
@@ -13,25 +14,41 @@ import '../../services/cloudinary_service.dart';
 import '../../models/report_model.dart';
 import 'duplicate_warning_modal.dart';
 
+// Adjust this path if your map screen is in a different folder.
+import '../search/map_search_screen.dart';
+
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
 
   @override
-  State<CreateReportScreen> createState() => _CreateReportScreenState();
+  State<CreateReportScreen> createState() =>
+      _CreateReportScreenState();
 }
 
-class _CreateReportScreenState extends State<CreateReportScreen> {
+class _CreateReportScreenState
+    extends State<CreateReportScreen> {
   String? selectedCategory;
   XFile? selectedImage;
   String? uploadedPhotoUrl;
+
   bool isUploadingPhoto = false;
   bool isSubmitting = false;
 
-  String locationLabel = 'Nugegoda Junction';
-  String locationAccuracy = 'GPS pin dropped · ±20 m accuracy';
+  // Initial fallback location. The user can change it
+  // using the OpenStreetMap picker.
+  GeoPoint selectedLocation = const GeoPoint(
+    6.8649,
+    79.8997,
+  );
 
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
+  String locationLabel = 'Nugegoda Junction';
+  String locationAccuracy = 'Default location · Please verify';
+
+  final TextEditingController nameController =
+      TextEditingController();
+
+  final TextEditingController descriptionController =
+      TextEditingController();
 
   final List<String> categories = [
     'Lost',
@@ -55,7 +72,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       imageQuality: 70,
     );
 
-    if (pickedFile == null) return;
+    if (pickedFile == null || !mounted) return;
 
     setState(() {
       selectedImage = pickedFile;
@@ -63,35 +80,75 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       uploadedPhotoUrl = null;
     });
 
-    final url = await CloudinaryService.uploadImage(selectedImage!);
+    try {
+      final url =
+          await CloudinaryService.uploadImage(pickedFile);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      uploadedPhotoUrl = url;
-      isUploadingPhoto = false;
-    });
+      setState(() {
+        uploadedPhotoUrl = url;
+        isUploadingPhoto = false;
+      });
 
-    if (url == null) {
+      if (url == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Photo upload failed, please try again',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() => isUploadingPhoto = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Photo upload failed, please try again'),
+        SnackBar(
+          content: Text('Photo upload failed: $error'),
         ),
       );
     }
   }
 
-  void _adjustPin() {
-    // TODO: open google_maps_flutter picker once wired up.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Map picker coming soon'),
+  Future<void> _adjustPin() async {
+    final result = await Navigator.of(context)
+        .push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => MapSearchScreen(
+          selectionMode: true,
+          initialLocation: selectedLocation,
+          initialLocationLabel: locationLabel,
+        ),
       ),
     );
+
+    if (!mounted || result == null) return;
+
+    final location = result['location'];
+
+    if (location is! GeoPoint) return;
+
+    setState(() {
+      selectedLocation = location;
+
+      locationLabel = result['label'] as String? ??
+          'Selected map location';
+
+      locationAccuracy =
+          'Map coordinates · '
+          '${location.latitude.toStringAsFixed(5)}, '
+          '${location.longitude.toStringAsFixed(5)}';
+    });
   }
 
   Future<void> _onContinue() async {
-    if (selectedCategory == null || uploadedPhotoUrl == null) {
+    if (isSubmitting || isUploadingPhoto) return;
+
+    if (selectedCategory == null ||
+        uploadedPhotoUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -105,42 +162,49 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
     setState(() => isSubmitting = true);
 
-    final existingReport =
-        await FirestoreService.checkForDuplicate(selectedCategory!);
-
-    if (!mounted) return;
-
-    if (existingReport != null) {
-      final bool? isDuplicate = await showDialog<bool>(
-        context: context,
-        builder: (context) => DuplicateWarningModal(
-          existingReportSummary:
-              'A report matching this animal was submitted recently nearby.',
-          existingReportPhotoUrl: existingReport.photoUrl.isNotEmpty
-              ? existingReport.photoUrl
-              : null,
-        ),
+    try {
+      final existingReport =
+          await FirestoreService.checkForDuplicate(
+        selectedCategory!,
       );
 
-      if (isDuplicate == null || isDuplicate == true) {
-        setState(() => isSubmitting = false);
-        return;
-      }
-    }
+      if (!mounted) return;
 
-    final newReport = ReportModel(
-      reportId: '',
-      ownerUid: AuthService.currentUid,
-      petName: nameController.text.trim(),
-      category: selectedCategory!,
-      photoUrl: uploadedPhotoUrl ?? '',
-      location: const GeoPoint(6.8649, 79.8997), // placeholder coords
-      locationRadius: 0.5,
-      description: descriptionController.text.trim(),
-      status: 'Active',
-      timestamp: DateTime.now(),
-    );
-    try {
+      if (existingReport != null) {
+        final bool? isDuplicate =
+            await showDialog<bool>(
+          context: context,
+          builder: (context) => DuplicateWarningModal(
+            existingReportSummary:
+                'A report matching this animal was submitted recently nearby.',
+            existingReportPhotoUrl:
+                existingReport.photoUrl.isNotEmpty
+                    ? existingReport.photoUrl
+                    : null,
+          ),
+        );
+
+        if (!mounted) return;
+
+        if (isDuplicate == null || isDuplicate == true) {
+          return;
+        }
+      }
+
+      final newReport = ReportModel(
+        reportId: '',
+        ownerUid: AuthService.currentUid,
+        petName: nameController.text.trim(),
+        category: selectedCategory!,
+        photoUrl: uploadedPhotoUrl!,
+        // Save the actual location selected on the map.
+        location: selectedLocation,
+        locationRadius: 0.5,
+        description: descriptionController.text.trim(),
+        status: 'Active',
+        timestamp: DateTime.now(),
+      );
+
       await FirestoreService.createReport(
         newReport.toMap(),
       );
@@ -153,14 +217,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ),
       );
 
-      // Return to the previous screen using GoRouter.
       context.pop();
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to submit report: $e'),
+          content: Text('Failed to submit report: $error'),
         ),
       );
     } finally {
@@ -221,82 +284,82 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
-                      onTap:
-                          isUploadingPhoto ? null : _pickAndUploadPhoto,
+                      onTap: isUploadingPhoto
+                          ? null
+                          : _pickAndUploadPhoto,
                       child: Container(
                         width: double.infinity,
                         height: 160,
                         decoration: BoxDecoration(
-                          color:
-                              AppColors.accentPeach.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(16),
+                          color: AppColors.accentPeach
+                              .withOpacity(0.3),
+                          borderRadius:
+                              BorderRadius.circular(16),
                           border: Border.all(
                             color: AppColors.border,
                           ),
                         ),
-                        child:
-                            (uploadedPhotoUrl != null &&
-                                    !isUploadingPhoto)
-                                ? ClipRRect(
-                                    borderRadius:
-                                        BorderRadius.circular(16),
-                                    child: Image.network(
-                                      uploadedPhotoUrl!,
-                                      fit: BoxFit.contain,
-                                      width: double.infinity,
-                                      height: 160,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const Center(
-                                        child: Icon(
-                                          Icons.broken_image_outlined,
-                                          color:
-                                              AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : Center(
-                                    child: Column(
-                                      mainAxisSize:
-                                          MainAxisSize.min,
-                                      children: [
-                                        if (isUploadingPhoto)
-                                          const CircularProgressIndicator(
-                                            color:
-                                                AppColors.primary,
-                                          )
-                                        else ...[
-                                          CircleAvatar(
-                                            radius: 22,
-                                            backgroundColor:
-                                                AppColors.accentPeach,
-                                            child: const Icon(
-                                              Icons
-                                                  .camera_alt_outlined,
-                                              color:
-                                                  AppColors.primary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Text(
-                                            'Add a clear photo',
-                                            style: AppTextStyles
-                                                .heading2,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'A photo helps owners identify the pet fast',
-                                            style: AppTextStyles
-                                                .caption,
-                                          ),
-                                        ],
-                                      ],
+                        child: uploadedPhotoUrl != null &&
+                                !isUploadingPhoto
+                            ? ClipRRect(
+                                borderRadius:
+                                    BorderRadius.circular(16),
+                                child: Image.network(
+                                  uploadedPhotoUrl!,
+                                  fit: BoxFit.contain,
+                                  width: double.infinity,
+                                  height: 160,
+                                  errorBuilder:
+                                      (context, error, stack) =>
+                                          const Center(
+                                    child: Icon(
+                                      Icons.broken_image_outlined,
+                                      color: AppColors
+                                          .textSecondary,
                                     ),
                                   ),
+                                ),
+                              )
+                            : Center(
+                                child: Column(
+                                  mainAxisSize:
+                                      MainAxisSize.min,
+                                  children: [
+                                    if (isUploadingPhoto)
+                                      const CircularProgressIndicator(
+                                        color: AppColors.primary,
+                                      )
+                                    else ...[
+                                      const CircleAvatar(
+                                        radius: 22,
+                                        backgroundColor:
+                                            AppColors.accentPeach,
+                                        child: Icon(
+                                          Icons.camera_alt_outlined,
+                                          color:
+                                              AppColors.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'Add a clear photo',
+                                        style: AppTextStyles
+                                            .heading2,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'A photo helps owners identify the pet fast',
+                                        style: AppTextStyles
+                                            .caption,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -309,7 +372,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       spacing: 10,
                       runSpacing: 10,
                       children: categories.map((cat) {
-                        final bool selected =
+                        final selected =
                             selectedCategory == cat;
 
                         return ChoiceChip(
@@ -390,15 +453,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                   locationLabel,
                                   style: AppTextStyles.bodyText
                                       .copyWith(
-                                    fontWeight:
-                                        FontWeight.w600,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   locationAccuracy,
-                                  style:
-                                      AppTextStyles.caption,
+                                  style: AppTextStyles.caption,
                                 ),
                                 const SizedBox(height: 8),
                                 GestureDetector(
@@ -409,14 +470,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                       horizontal: 12,
                                       vertical: 6,
                                     ),
-                                    decoration:
-                                        BoxDecoration(
+                                    decoration: BoxDecoration(
                                       color:
                                           AppColors.accentPeach,
                                       borderRadius:
-                                          BorderRadius.circular(
-                                        20,
-                                      ),
+                                          BorderRadius.circular(20),
                                     ),
                                     child: const Text(
                                       'Adjust pin',
@@ -449,8 +507,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         hintText:
                             'Colour, collar, behaviour, distinctive marks...',
                         filled: true,
-                        fillColor:
-                            AppColors.cardBackground,
+                        fillColor: AppColors.cardBackground,
                         border: OutlineInputBorder(
                           borderRadius:
                               BorderRadius.circular(12),
@@ -469,8 +526,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               label: isSubmitting
                   ? 'Submitting...'
                   : 'Continue',
-              onPressed:
-                  isSubmitting ? () {} : _onContinue,
+              onPressed: isSubmitting || isUploadingPhoto
+                  ? () {}
+                  : _onContinue,
             ),
           ],
         ),
