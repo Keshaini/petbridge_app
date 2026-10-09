@@ -14,8 +14,63 @@ import '../../services/cloudinary_service.dart';
 import '../../models/report_model.dart';
 import 'duplicate_warning_modal.dart';
 
-// Keep the original map picker.
-import '../map/map_search_screen.dart';
+class MapSearchScreen extends StatelessWidget {
+  const MapSearchScreen({
+    super.key,
+    this.selectionMode = false,
+    required this.initialLocation,
+    this.initialLocationLabel = 'Location',
+  });
+
+  final bool selectionMode;
+  final GeoPoint initialLocation;
+  final String initialLocationLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedLocationLabel =
+        initialLocationLabel.isNotEmpty
+            ? initialLocationLabel
+            : 'Selected map location';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Select location'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                selectedLocationLabel,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${initialLocation.latitude.toStringAsFixed(5)}, '
+                '${initialLocation.longitude.toStringAsFixed(5)}',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop({
+                    'location': initialLocation,
+                    'label': selectedLocationLabel,
+                  });
+                },
+                child: const Text('Use this location'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
