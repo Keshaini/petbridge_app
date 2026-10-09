@@ -4,15 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/auth_service.dart';
-import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/app_text_field.dart';
-import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
-import '../../models/report_model.dart';
-import '..//search/map_search_screen.dart';
+import '../search/map_search_screen.dart';
 import 'duplicate_warning_modal.dart';
+import '../../constants/app_colors.dart';
+import '../../models/report_model.dart';
+import '../../services/firestore_service.dart';
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
