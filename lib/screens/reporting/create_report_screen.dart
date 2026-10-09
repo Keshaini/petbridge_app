@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
@@ -15,6 +13,9 @@ import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
 import '../../models/report_model.dart';
 import 'duplicate_warning_modal.dart';
+
+// Keep the original map picker.
+import '../map/map_search_screen.dart';
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
@@ -27,20 +28,27 @@ class CreateReportScreen extends StatefulWidget {
 class _CreateReportScreenState extends State<CreateReportScreen> {
   String? selectedCategory;
   String? selectedAnimalType;
+
   XFile? selectedImage;
   String? uploadedPhotoUrl;
 
   bool isUploadingPhoto = false;
   bool isSubmitting = false;
 
-  // Location selected using the full-screen Google Maps picker.
-  LatLng? selectedLocation;
-  String locationLabel = 'No location selected';
+  // Initial fallback location. The user can change it
+  // using the existing OpenStreetMap picker.
+  GeoPoint selectedLocation = const GeoPoint(
+    6.8649,
+    79.8997,
+  );
+
+  String locationLabel = 'Nugegoda Junction';
   String locationAccuracy =
-      'Tap Adjust pin to select the pet location';
+      'Default location · Please verify';
 
   final TextEditingController nameController =
       TextEditingController();
+
   final TextEditingController descriptionController =
       TextEditingController();
 
@@ -51,7 +59,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     'Abandoned',
   ];
 
-  // Rabbit is intentionally excluded.
+  // No Breed field and no Rabbit option.
   final List<String> animalTypes = [
     'Dog',
     'Cat',
@@ -97,7 +105,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Photo upload failed, please try again.',
+              'Photo upload failed, please try again',
             ),
           ),
         );
@@ -107,7 +115,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
       setState(() {
         isUploadingPhoto = false;
-        uploadedPhotoUrl = null;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -118,24 +125,36 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     }
   }
 
-  // Opens the original full-screen Google Maps picker.
+  // Uses the original MapSearchScreen, not GoogleMap directly.
   Future<void> _adjustPin() async {
-    final result = await Navigator.of(context).push<LatLng>(
+    final result = await Navigator.of(context)
+        .push<Map<String, dynamic>>(
       MaterialPageRoute(
-        builder: (_) => LocationPickerScreen(
+        builder: (_) => MapSearchScreen(
+          selectionMode: true,
           initialLocation: selectedLocation,
+          initialLocationLabel: locationLabel,
         ),
       ),
     );
 
     if (!mounted || result == null) return;
 
+    final location = result['location'];
+
+    if (location is! GeoPoint) return;
+
     setState(() {
-      selectedLocation = result;
-      locationLabel = 'Selected location';
+      selectedLocation = location;
+
+      locationLabel =
+          result['label'] as String? ??
+              'Selected map location';
+
       locationAccuracy =
-          'Lat ${result.latitude.toStringAsFixed(5)}, '
-          'Lng ${result.longitude.toStringAsFixed(5)}';
+          'Map coordinates · '
+          '${location.latitude.toStringAsFixed(5)}, '
+          '${location.longitude.toStringAsFixed(5)}';
     });
   }
 
@@ -143,11 +162,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     if (isSubmitting || isUploadingPhoto) return;
 
     if (selectedCategory == null ||
+        selectedAnimalType == null ||
         uploadedPhotoUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please add a photo and select a category.',
+            'Please add a photo, select a category, '
+            'and select an animal type.',
           ),
           backgroundColor: AppColors.statusLost,
         ),
@@ -155,19 +176,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       return;
     }
 
-    if (selectedLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please select the pet location using Adjust pin.',
-          ),
-          backgroundColor: AppColors.statusLost,
-        ),
-      );
-      return;
-    }
-
-    setState(() => isSubmitting = true);
+    setState(() {
+      isSubmitting = true;
+    });
 
     try {
       final existingReport =
@@ -181,10 +192,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         final bool? isDuplicate =
             await showDialog<bool>(
           context: context,
-          builder: (dialogContext) =>
-              DuplicateWarningModal(
+          builder: (context) => DuplicateWarningModal(
             existingReportSummary:
-                'A report matching this animal was submitted recently nearby.',
+                'A report matching this animal was '
+                'submitted recently nearby.',
             existingReportPhotoUrl:
                 existingReport.photoUrl.isNotEmpty
                     ? existingReport.photoUrl
@@ -194,6 +205,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
         if (!mounted) return;
 
+        // Stop if the user cancels or confirms it is a duplicate.
         if (isDuplicate == null || isDuplicate == true) {
           return;
         }
@@ -204,11 +216,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ownerUid: AuthService.currentUid,
         petName: nameController.text.trim(),
         category: selectedCategory!,
+        animalType: selectedAnimalType!,
         photoUrl: uploadedPhotoUrl!,
-        location: GeoPoint(
-          selectedLocation!.latitude,
-          selectedLocation!.longitude,
-        ),
+        location: selectedLocation,
+        locationLabel: locationLabel,
         locationRadius: 0.5,
         description: descriptionController.text.trim(),
         status: 'Active',
@@ -223,7 +234,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Report submitted successfully.'),
+          content: Text('Report submitted successfully'),
         ),
       );
 
@@ -240,7 +251,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() => isSubmitting = false);
+        setState(() {
+          isSubmitting = false;
+        });
       }
     }
   }
@@ -296,9 +309,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Photo upload
                     GestureDetector(
                       onTap: isUploadingPhoto
                           ? null
@@ -325,15 +338,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                   fit: BoxFit.contain,
                                   width: double.infinity,
                                   height: 160,
-                                  errorBuilder: (
-                                    context,
-                                    error,
-                                    stackTrace,
-                                  ) =>
-                                      const Center(
+                                  errorBuilder:
+                                      (context, error, stack) =>
+                                          const Center(
                                     child: Icon(
-                                      Icons
-                                          .broken_image_outlined,
+                                      Icons.broken_image_outlined,
                                       color: AppColors
                                           .textSecondary,
                                     ),
@@ -347,39 +356,31 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                   children: [
                                     if (isUploadingPhoto)
                                       const CircularProgressIndicator(
-                                        color:
-                                            AppColors.primary,
+                                        color: AppColors.primary,
                                       )
                                     else ...[
-                                      CircleAvatar(
+                                      const CircleAvatar(
                                         radius: 22,
                                         backgroundColor:
-                                            AppColors
-                                                .accentPeach,
-                                        child: const Icon(
-                                          Icons
-                                              .camera_alt_outlined,
+                                            AppColors.accentPeach,
+                                        child: Icon(
+                                          Icons.camera_alt_outlined,
                                           color:
                                               AppColors.primary,
                                         ),
                                       ),
-                                      const SizedBox(
-                                        height: 10,
-                                      ),
+                                      const SizedBox(height: 10),
                                       Text(
                                         'Add a clear photo',
                                         style: AppTextStyles
                                             .heading2,
                                       ),
-                                      const SizedBox(
-                                        height: 4,
-                                      ),
+                                      const SizedBox(height: 4),
                                       Text(
-                                        'A photo helps owners identify the pet fast',
+                                        'A photo helps owners identify '
+                                        'the pet fast',
                                         style: AppTextStyles
                                             .caption,
-                                        textAlign:
-                                            TextAlign.center,
                                       ),
                                     ],
                                   ],
@@ -387,8 +388,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                               ),
                       ),
                     ),
+
                     const SizedBox(height: 24),
 
+                    // Report category
                     Text(
                       'What are you reporting?',
                       style: AppTextStyles.heading2,
@@ -397,16 +400,16 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: categories.map((category) {
+                      children: categories.map((cat) {
                         final selected =
-                            selectedCategory == category;
+                            selectedCategory == cat;
 
                         return ChoiceChip(
-                          label: Text(category),
+                          label: Text(cat),
                           selected: selected,
                           onSelected: (_) {
                             setState(() {
-                              selectedCategory = category;
+                              selectedCategory = cat;
                             });
                           },
                           selectedColor: AppColors.primary,
@@ -430,6 +433,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Animal type
                     Text(
                       'Animal Type',
                       style: AppTextStyles.heading2,
@@ -438,17 +443,30 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children:
-                          animalTypes.map((animalType) {
+                      children: animalTypes.map((animal) {
                         final selected =
-                            selectedAnimalType == animalType;
+                            selectedAnimalType == animal;
 
                         return ChoiceChip(
-                          label: Text(animalType),
+                          avatar: Icon(
+                            animal == 'Dog'
+                                ? Icons.pets
+                                : animal == 'Cat'
+                                    ? Icons.cruelty_free
+                                    : animal == 'Bird'
+                                        ? Icons.flutter_dash
+                                        : Icons
+                                            .category_outlined,
+                            size: 18,
+                            color: selected
+                                ? Colors.white
+                                : AppColors.textSecondary,
+                          ),
+                          label: Text(animal),
                           selected: selected,
                           onSelected: (_) {
                             setState(() {
-                              selectedAnimalType = animalType;
+                              selectedAnimalType = animal;
                             });
                           },
                           selectedColor: AppColors.primary,
@@ -472,6 +490,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Pet name
                     Text(
                       'Pet Name (optional)',
                       style: AppTextStyles.heading2,
@@ -484,6 +504,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Location picker
                     Text(
                       'Where was it seen?',
                       style: AppTextStyles.heading2,
@@ -525,23 +547,20 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                   locationLabel,
                                   style: AppTextStyles.bodyText
                                       .copyWith(
-                                    fontWeight:
-                                        FontWeight.w600,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   locationAccuracy,
-                                  style:
-                                      AppTextStyles.caption,
+                                  style: AppTextStyles.caption,
                                 ),
                                 const SizedBox(height: 8),
                                 GestureDetector(
                                   onTap: _adjustPin,
                                   child: Container(
                                     padding:
-                                        const EdgeInsets
-                                            .symmetric(
+                                        const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 6,
                                     ),
@@ -549,9 +568,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                       color:
                                           AppColors.accentPeach,
                                       borderRadius:
-                                          BorderRadius.circular(
-                                        20,
-                                      ),
+                                          BorderRadius.circular(20),
                                     ),
                                     child: const Text(
                                       'Adjust pin',
@@ -559,8 +576,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                         fontSize: 12,
                                         fontWeight:
                                             FontWeight.w600,
-                                        color: AppColors
-                                            .textPrimary,
+                                        color:
+                                            AppColors.textPrimary,
                                       ),
                                     ),
                                   ),
@@ -573,6 +590,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Description
                     Text(
                       'Description (optional)',
                       style: AppTextStyles.heading2,
@@ -583,10 +602,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       maxLines: 4,
                       decoration: InputDecoration(
                         hintText:
-                            'Colour, collar, behaviour, distinctive marks...',
+                            'Colour, collar, behaviour, '
+                            'distinctive marks...',
                         filled: true,
-                        fillColor:
-                            AppColors.cardBackground,
+                        fillColor: AppColors.cardBackground,
                         border: OutlineInputBorder(
                           borderRadius:
                               BorderRadius.circular(12),
@@ -596,231 +615,23 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
+
             PrimaryButton(
               label: isSubmitting
                   ? 'Submitting...'
                   : 'Continue',
-              onPressed: isSubmitting
+              onPressed: isSubmitting || isUploadingPhoto
                   ? () {}
                   : _onContinue,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Original full-screen Google Maps picker.
-/// Tap the map to place or move the pin, then confirm.
-class LocationPickerScreen extends StatefulWidget {
-  const LocationPickerScreen({
-    super.key,
-    this.initialLocation,
-  });
-
-  final LatLng? initialLocation;
-
-  @override
-  State<LocationPickerScreen> createState() =>
-      _LocationPickerScreenState();
-}
-
-class _LocationPickerScreenState
-    extends State<LocationPickerScreen> {
-  static const LatLng _fallbackLocation =
-      LatLng(6.8649, 79.8997);
-
-  GoogleMapController? _mapController;
-  LatLng? _pickedLocation;
-  bool _gettingLocation = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _pickedLocation = widget.initialLocation;
-  }
-
-  @override
-  void dispose() {
-    _mapController?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _useCurrentLocation() async {
-    setState(() => _gettingLocation = true);
-
-    try {
-      final serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        _showMessage(
-          'Please turn on your phone location services.',
-        );
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        _showMessage(
-          'Location permission was denied. '
-          'You can tap the map to choose a location.',
-        );
-        return;
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _showMessage(
-          'Location permission is blocked. Enable it '
-          'in your phone settings, or tap the map.',
-        );
-        return;
-      }
-
-      final position =
-          await Geolocator.getCurrentPosition();
-
-      final current = LatLng(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (!mounted) return;
-
-      setState(() => _pickedLocation = current);
-
-      await _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(current, 16),
-      );
-    } catch (_) {
-      _showMessage(
-        'Could not get your location. '
-        'You can tap the map to choose it.',
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _gettingLocation = false);
-      }
-    }
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final startLocation =
-        _pickedLocation ?? _fallbackLocation;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Choose Pet Location'),
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textPrimary,
-        actions: [
-          TextButton(
-            onPressed: _pickedLocation == null
-                ? null
-                : () {
-                    Navigator.of(context)
-                        .pop(_pickedLocation);
-                  },
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: startLocation,
-                zoom: 13,
-              ),
-              onMapCreated: (controller) {
-                _mapController = controller;
-              },
-              onTap: (location) {
-                setState(() {
-                  _pickedLocation = location;
-                });
-              },
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
-              markers: _pickedLocation == null
-                  ? <Marker>{}
-                  : {
-                      Marker(
-                        markerId: const MarkerId(
-                          'selected-pet-location',
-                        ),
-                        position: _pickedLocation!,
-                        infoWindow: const InfoWindow(
-                          title: 'Pet location',
-                        ),
-                      ),
-                    },
-              mapToolbarEnabled: false,
-            ),
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            top: 16,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  _pickedLocation == null
-                      ? 'Tap the map to drop a pin where the pet was seen.'
-                      : 'Pin selected. Move it by tapping another place on the map.',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 24,
-            child: FloatingActionButton.extended(
-              onPressed: _gettingLocation
-                  ? null
-                  : _useCurrentLocation,
-              icon: _gettingLocation
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.my_location),
-              label: Text(
-                _gettingLocation
-                    ? 'Locating...'
-                    : 'Use my location',
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
