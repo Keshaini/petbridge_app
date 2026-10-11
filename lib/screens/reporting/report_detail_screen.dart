@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -112,12 +111,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  // Opens the direct message screen. push() keeps this screen underneath,
+  // so the back arrow in the chat returns to the report.
   void _messageReporter() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Messaging will be available soon.'),
-      ),
-    );
+    context.push('/chat');
   }
 
   @override

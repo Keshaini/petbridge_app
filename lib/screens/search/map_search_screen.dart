@@ -520,19 +520,56 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
                 ),
               ),
 
-              // Top search bar.
+              // Back button and existing top search bar.
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
-                    20,
+                    16,
                     14,
-                    20,
+                    16,
                     0,
                   ),
-                  child: _SearchBar(
-                    label: _locationLabel ??
-                        'Search area or pet name',
-                    onTap: _openLocationPicker,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE3D9CE),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                          tooltip: 'Go back',
+                          onPressed: () {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/home');
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _SearchBar(
+                          label: _locationLabel ??
+                              'Search area or pet name',
+                          onTap: _openLocationPicker,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

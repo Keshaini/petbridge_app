@@ -413,28 +413,32 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     String? subtitle,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-      leading: _leadingIcon(icon),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13.5,
-          fontWeight: FontWeight.w700,
-          color: _darkText,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        onTap: onTap,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        leading: _leadingIcon(icon),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: _darkText,
+          ),
         ),
-      ),
-      subtitle: subtitle == null
-          ? null
-          : Text(
-              subtitle,
-              style: const TextStyle(fontSize: 11.5, color: _mutedText),
-            ),
-      trailing: const Icon(
-        Icons.arrow_forward_ios_rounded,
-        size: 13,
-        color: Color(0xFFB0A299),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle,
+                style: const TextStyle(fontSize: 11.5, color: _mutedText),
+              ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios_rounded,
+          size: 13,
+          color: Color(0xFFB0A299),
+        ),
       ),
     );
   }
@@ -446,26 +450,30 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return SwitchListTile(
-      value: value,
-      onChanged: onChanged,
-      activeThumbColor: Colors.white,
-      activeTrackColor: _brown,
-      inactiveThumbColor: Colors.white,
-      inactiveTrackColor: Colors.grey.shade300,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-      secondary: _leadingIcon(icon),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13.5,
-          fontWeight: FontWeight.w700,
-          color: _darkText,
+    return Material(
+      color: Colors.transparent,
+      child: SwitchListTile(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: Colors.white,
+        activeTrackColor: _brown,
+        inactiveThumbColor: Colors.white,
+        inactiveTrackColor: Colors.grey.shade300,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        secondary: _leadingIcon(icon),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: _darkText,
+          ),
         ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 11.5, color: _mutedText),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 11.5, color: _mutedText),
+        ),
       ),
     );
   }

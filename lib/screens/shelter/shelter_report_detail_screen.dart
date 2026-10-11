@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/report_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
+
 class SightingReportDetailScreen extends StatefulWidget {
-  const SightingReportDetailScreen({super.key});
+  final String reportId;
+
+  const SightingReportDetailScreen({
+    super.key,
+    required this.reportId,
+  });
 
   @override
   State<SightingReportDetailScreen> createState() =>
@@ -11,437 +20,366 @@ class SightingReportDetailScreen extends StatefulWidget {
 
 class _SightingReportDetailScreenState
     extends State<SightingReportDetailScreen> {
+  static const Color background = Color(0xFFFFF9F1);
+  static const Color primary = Color(0xFF8A624A);
+  static const Color darkText = Color(0xFF34251D);
+  static const Color mutedText = Color(0xFF8B8179);
+  static const Color greenColor = Color(0xFF4F8A65);
+  static const Color redColor = Color(0xFFD9534F);
+
   bool isBookmarked = false;
-  bool isResolved = false;
+  bool isProcessing = false;
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF9F6),
-      body: SafeArea(
-        child: Column(
+  String _timeAgo(DateTime timestamp) {
+    final difference = DateTime.now().difference(timestamp);
+
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} minutes ago';
+    }
+    if (difference.inHours < 24) {
+      return '${difference.inHours} hours ago';
+    }
+    if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    }
+
+    return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  Future<void> _claimReport(ReportModel report) async {
+    if (AuthService.currentUid == 'guest') {
+      _showMessage('Please log in before claiming a report.');
+      return;
+    }
+
+    setState(() => isProcessing = true);
+
+    try {
+      await FirestoreService.claimReport(
+        reportId: report.reportId,
+        shelterUid: AuthService.currentUid,
+      );
+
+      _showMessage('Report claimed successfully.');
+    } catch (e) {
+      _showMessage(
+        'Unable to claim report: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+    } finally {
+      if (mounted) setState(() => isProcessing = false);
+    }
+  }
+
+  Future<void> _releaseClaim(ReportModel report) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Release this report?'),
+        content: const Text(
+          'Other shelters will be able to claim this report.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Release'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => isProcessing = true);
+
+    try {
+      await FirestoreService.releaseClaim(
+        reportId: report.reportId,
+        shelterUid: AuthService.currentUid,
+      );
+
+      _showMessage('Report claim released.');
+    } catch (e) {
+      _showMessage(
+        'Unable to release claim: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+    } finally {
+      if (mounted) setState(() => isProcessing = false);
+    }
+  }
+
+  Future<void> _resolveReport(ReportModel report) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Resolve this report?'),
+        content: const Text(
+          'Only mark this report as resolved when the case has been handled.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: greenColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Mark resolved'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => isProcessing = true);
+
+    try {
+      await FirestoreService.resolveReport(
+        reportId: report.reportId,
+        shelterUid: AuthService.currentUid,
+      );
+
+      _showMessage('Report marked as resolved.');
+    } catch (e) {
+      _showMessage(
+        'Unable to resolve report: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+    } finally {
+      if (mounted) setState(() => isProcessing = false);
+    }
+  }
+
+  Widget _buildPhoto(ReportModel report) {
+    if (report.photoUrl.trim().isNotEmpty) {
+      return Image.network(
+        report.photoUrl,
+        width: double.infinity,
+        height: 250,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _photoPlaceholder();
+        },
+      );
+    }
+
+    return _photoPlaceholder();
+  }
+
+  Widget _photoPlaceholder() {
+    return Container(
+      height: 250,
+      width: double.infinity,
+      color: const Color(0xFFF0E6DA),
+      child: const Icon(
+        Icons.pets,
+        size: 75,
+        color: primary,
+      ),
+    );
+  }
+
+  Widget _infoRow({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: primary, size: 21),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: darkText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReport(ReportModel report) {
+    final uid = AuthService.currentUid;
+    final isClaimed = report.claimedBy.isNotEmpty;
+    final claimedByMe = isClaimed && report.claimedBy == uid;
+    final claimedByAnother = isClaimed && report.claimedBy != uid;
+    final isActive = report.status.toLowerCase() == 'active';
+    final isResolved = !isActive;
+
+    return Column(
+      children: [
+        Stack(
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            _buildPhoto(report),
+            Positioned(
+              top: 15,
+              left: 15,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: isResolved ? greenColor : redColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  report.status.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: CircleAvatar(
+                backgroundColor: Colors.white,
+                child: IconButton(
+                  tooltip: 'Bookmark report',
+                  icon: Icon(
+                    isBookmarked
+                        ? Icons.bookmark
+                        : Icons.bookmark_border,
+                    color: primary,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isBookmarked = !isBookmarked;
+                    });
+                    _showMessage(
+                      isBookmarked
+                          ? 'Bookmarked for this session.'
+                          : 'Bookmark removed.',
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            children: [
+              Text(
+                report.petName.trim().isNotEmpty
+                    ? report.petName
+                    : report.animalType.trim().isNotEmpty
+                        ? report.animalType
+                        : 'Animal report',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: darkText,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                [
+                  if (report.animalType.isNotEmpty) report.animalType,
+                  if (report.category.isNotEmpty) report.category,
+                ].join(' • '),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: mutedText,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
                   children: [
-                    // =====================================================
-                    // DOG PHOTO / HERO SECTION
-                    // =====================================================
-                    Stack(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: 280,
-                          color: const Color(0xFFF1ECE6),
-                          child: Image.asset(
-                            'assets/images/milo.jpeg',
-                            width: double.infinity,
-                            height: 280,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-
-                        // Back button
-                        Positioned(
-                          top: 16,
-                          left: 16,
-                          child: _roundButton(
-                            icon: Icons.arrow_back,
-                            onTap: () {
-                              context.pop();
-                            },
-                          ),
-                        ),
-
-                        // Bookmark button
-                        Positioned(
-                          top: 16,
-                          right: 16,
-                          child: _roundButton(
-                            icon: isBookmarked
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                            onTap: () {
-                              setState(() {
-                                isBookmarked = !isBookmarked;
-                              });
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    isBookmarked
-                                        ? 'Report bookmarked'
-                                        : 'Bookmark removed',
-                                  ),
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // =====================================================
-                    // REPORT INFORMATION
-                    // =====================================================
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Verified reporter
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE7F4EA),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.verified,
-                                  size: 16,
-                                  color: Color(0xFF4D7C57),
-                                ),
-                                SizedBox(width: 5),
-                                Text(
-                                  'Verified Reporter',
-                                  style: TextStyle(
-                                    color: Color(0xFF4D7C57),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
+                          const Text(
+                            'Report status',
+                            style: TextStyle(
+                              color: mutedText,
+                              fontSize: 12,
                             ),
                           ),
-
-                          const SizedBox(height: 14),
-
-                          // Dog name
-                          const Text(
-                            'Milo',
+                          const SizedBox(height: 6),
+                          Text(
+                            report.status,
                             style: TextStyle(
-                              fontSize: 30,
+                              color: isResolved ? greenColor : primary,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF292524),
                             ),
                           ),
-
-                          const SizedBox(height: 4),
-
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           const Text(
-                            'Golden Retriever',
+                            'Reported',
                             style: TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFF78716C),
+                              color: mutedText,
+                              fontSize: 12,
                             ),
                           ),
-
-                          const SizedBox(height: 12),
-
-                          // LOST badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFCE7E7),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Text(
-                              'LOST',
-                              style: TextStyle(
-                                color: Color(0xFFC24141),
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 22),
-
-                          // =================================================
-                          // STAT CARDS
-                          // =================================================
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatCard(
-                                  icon: isResolved
-                                      ? Icons.check_circle_outline
-                                      : Icons.access_time,
-                                  title: isResolved ? 'Resolved' : 'Active',
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _buildStatCard(
-                                  icon: Icons.location_on_outlined,
-                                  title: '0.4 km',
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _buildStatCard(
-                                  icon: Icons.schedule,
-                                  title: '2h ago',
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 28),
-
-                          // =================================================
-                          // SIGHTING AREA
-                          // =================================================
-                          const Text(
-                            'Sighting Area',
-                            style: TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF292524),
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          Container(
-                            height: 190,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8E2D9),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Stack(
-                              children: [
-                                const Center(
-                                  child: Icon(
-                                    Icons.map_outlined,
-                                    size: 60,
-                                    color: Color(0xFF8B8177),
-                                  ),
-                                ),
-                                Positioned(
-                                  left: 16,
-                                  bottom: 16,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Text(
-                                      'Downtown Core · 500 m radius',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Directions
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Directions will be available soon',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.directions_outlined),
-                              label: const Text('Directions'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF4D7C57),
-                                side: const BorderSide(
-                                  color: Color(0xFF4D7C57),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 13,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 28),
-
-                          // =================================================
-                          // REPORTER INFORMATION
-                          // =================================================
-                          const Text(
-                            'Reporter',
-                            style: TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF292524),
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFE7E1DA),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Color(0xFFE6DED4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.person,
-                                    color: Color(0xFF85786D),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Anjali P.',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      SizedBox(height: 3),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.verified,
-                                            size: 14,
-                                            color: Color(0xFF4D7C57),
-                                          ),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'Verified reporter',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF6B645E),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // =================================================
-                          // ACTION BUTTONS
-                          // =================================================
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton.icon(
-                              onPressed: isResolved
-                                  ? null
-                                  : () {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Messaging will be available soon',
-                                          ),
-                                        ),
-                                      );
-                                    },
-                              icon: const Icon(Icons.chat_bubble_outline),
-                              label: const Text(
-                                'Message Reporter',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4D7C57),
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor:
-                                    const Color(0xFFB8C5BA),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: OutlinedButton.icon(
-                              onPressed: isResolved
-                                  ? null
-                                  : _showResolveDialog,
-                              icon: Icon(
-                                isResolved
-                                    ? Icons.check_circle
-                                    : Icons.check_circle_outline,
-                              ),
-                              label: Text(
-                                isResolved
-                                    ? 'Resolved'
-                                    : 'Mark as Resolved',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF4D7C57),
-                                disabledForegroundColor:
-                                    const Color(0xFF8A938C),
-                                side: BorderSide(
-                                  color: isResolved
-                                      ? const Color(0xFFB8C5BA)
-                                      : const Color(0xFF4D7C57),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _timeAgo(report.timestamp),
+                            style: const TextStyle(
+                              color: darkText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -450,123 +388,249 @@ class _SightingReportDetailScreenState
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =====================================================
-  // ROUND BUTTON
-  // =====================================================
-  Widget _roundButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 2,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(
-            icon,
-            color: const Color(0xFF292524),
-            size: 21,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // =====================================================
-  // STAT CARD
-  // =====================================================
-  Widget _buildStatCard({
-    required IconData icon,
-    required String title,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 15,
-        horizontal: 8,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE7E1DA),
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            size: 21,
-            color: const Color(0xFF4D7C57),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF57504A),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =====================================================
-  // RESOLVE DIALOG
-  // =====================================================
-  void _showResolveDialog() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Mark as resolved?'),
-          content: const Text(
-            'Are you sure this sighting report has been resolved?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  isResolved = true;
-                });
-
-                Navigator.pop(dialogContext);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Report marked as resolved'),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4D7C57),
-                foregroundColor: Colors.white,
+              const SizedBox(height: 22),
+              const Text(
+                'Report information',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: darkText,
+                ),
               ),
-              child: const Text('Resolve'),
-            ),
-          ],
-        );
-      },
+              const SizedBox(height: 8),
+              _infoRow(
+                icon: Icons.location_on_outlined,
+                title: 'Reported location',
+                value: report.locationLabel.isNotEmpty
+                    ? report.locationLabel
+                    : 'Location label not provided',
+              ),
+              _infoRow(
+                icon: Icons.radar,
+                title: 'Location radius',
+                value: '${report.locationRadius} km',
+              ),
+              _infoRow(
+                icon: Icons.access_time,
+                title: 'Report submitted',
+                value: report.timestamp.toLocal().toString().split('.').first,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Description',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: darkText,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                report.description.isNotEmpty
+                    ? report.description
+                    : 'No additional description was provided.',
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.6,
+                  color: mutedText,
+                ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Shelter actions',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: darkText,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (claimedByAnother && isActive)
+                Container(
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3E8D9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'This report has already been claimed by another shelter.',
+                    style: TextStyle(
+                      color: darkText,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              if (!isClaimed && isActive)
+                _actionButton(
+                  label: 'Claim report',
+                  icon: Icons.handshake_outlined,
+                  onPressed: isProcessing
+                      ? null
+                      : () => _claimReport(report),
+                ),
+              if (claimedByMe && isActive) ...[
+                _actionButton(
+                  label: 'Mark as resolved',
+                  icon: Icons.check_circle_outline,
+                  backgroundColor: greenColor,
+                  onPressed: isProcessing
+                      ? null
+                      : () => _resolveReport(report),
+                ),
+                const SizedBox(height: 10),
+                _actionButton(
+                  label: 'Release claim',
+                  icon: Icons.undo,
+                  backgroundColor: Colors.white,
+                  foregroundColor: primary,
+                  onPressed: isProcessing
+                      ? null
+                      : () => _releaseClaim(report),
+                ),
+              ],
+              if (isResolved)
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE7F2E8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: greenColor,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'This report has been resolved.',
+                          style: TextStyle(
+                            color: greenColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (isProcessing) ...[
+                const SizedBox(height: 14),
+                const Center(
+                  child: CircularProgressIndicator(color: primary),
+                ),
+              ],
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/map-search'),
+                icon: const Icon(Icons.directions_outlined),
+                label: const Text('Get directions'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: primary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _actionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback? onPressed,
+    Color backgroundColor = primary,
+    Color foregroundColor = Colors.white,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: backgroundColor == Colors.white
+                ? const BorderSide(color: primary)
+                : BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: background,
+      appBar: AppBar(
+        backgroundColor: background,
+        foregroundColor: darkText,
+        elevation: 0,
+        title: const Text(
+          'Report Details',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/shelter-dashboard');
+            }
+          },
+        ),
+      ),
+      body: StreamBuilder<ReportModel?>(
+        stream: FirestoreService.watchReport(widget.reportId),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load this report.\n\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: mutedText),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return const Center(
+              child: CircularProgressIndicator(color: primary),
+            );
+          }
+
+          final report = snapshot.data;
+
+          if (report == null) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'This report could not be found or has been deleted.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: mutedText),
+                ),
+              ),
+            );
+          }
+
+          return _buildReport(report);
+        },
+      ),
     );
   }
 }

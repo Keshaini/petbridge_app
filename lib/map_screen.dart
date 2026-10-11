@@ -80,21 +80,27 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    bool serviceEnabled =
+        await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
+      if (!mounted) return;
+
       setState(() {
         _locationStatus = 'Location services disabled.';
       });
       return;
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    LocationPermission permission =
+        await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
 
       if (permission == LocationPermission.denied) {
+        if (!mounted) return;
+
         setState(() {
           _locationStatus = 'Location permission denied.';
         });
@@ -102,13 +108,31 @@ class _MapScreenState extends State<MapScreen> {
       }
     }
 
-    await Geolocator.getCurrentPosition();
+    if (permission == LocationPermission.deniedForever) {
+      if (!mounted) return;
 
-    if (!mounted) return;
+      setState(() {
+        _locationStatus =
+            'Location permission permanently denied.';
+      });
+      return;
+    }
 
-    setState(() {
-      _locationStatus = '5 active reports near you';
-    });
+    try {
+      await Geolocator.getCurrentPosition();
+
+      if (!mounted) return;
+
+      setState(() {
+        _locationStatus = '5 active reports near you';
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _locationStatus = 'Unable to determine your location.';
+      });
+    }
   }
 
   @override
@@ -291,63 +315,47 @@ class _MapScreenState extends State<MapScreen> {
                   // Filter Chips
                   Row(
                     children: ['All', 'Lost', 'Found', 'Injured']
-                        .map(
-                          (category) {
-                            bool isSelected =
-                                _selectedCategory ==
-                                    category;
+                        .map((category) {
+                      bool isSelected =
+                          _selectedCategory == category;
 
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.only(
-                                right: 8.0,
-                              ),
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedCategory =
-                                        category;
-                                  });
-                                },
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets
-                                          .symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  decoration:
-                                      BoxDecoration(
-                                    color: isSelected
-                                        ? const Color(
-                                            0xFF5C3A21,
-                                          )
-                                        : const Color(
-                                            0xFFF5EBE1,
-                                          ),
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(20),
-                                  ),
-                                  child: Text(
-                                    category,
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : const Color(
-                                              0xFF5C3A21,
-                                            ),
-                                      fontWeight:
-                                          FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
+                      return Padding(
+                        padding: const EdgeInsets.only(
+                          right: 8.0,
+                        ),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedCategory = category;
+                            });
                           },
-                        )
-                        .toList(),
+                          child: Container(
+                            padding:
+                                const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF5C3A21)
+                                  : const Color(0xFFF5EBE1),
+                              borderRadius:
+                                  BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF5C3A21),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -360,14 +368,14 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 180,
             child: FloatingActionButton(
               backgroundColor: const Color(0xFFE38B75),
+              onPressed: () {
+                context.push('/create-report');
+              },
               child: const Icon(
                 Icons.add,
                 color: Colors.white,
                 size: 28,
               ),
-              onPressed: () {
-                context.push('/create-report');
-              },
             ),
           ),
 
@@ -421,11 +429,9 @@ class _MapScreenState extends State<MapScreen> {
                               Text(
                                 '${filteredReports.first.name} — ${filteredReports.first.breed}',
                                 style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.bold,
+                                  fontWeight: FontWeight.bold,
                                   fontSize: 14,
-                                  color:
-                                      Color(0xFF3D2314),
+                                  color: Color(0xFF3D2314),
                                 ),
                                 maxLines: 1,
                                 overflow:
@@ -443,21 +449,18 @@ class _MapScreenState extends State<MapScreen> {
                                       horizontal: 5,
                                       vertical: 2,
                                     ),
-                                    decoration:
-                                        BoxDecoration(
+                                    decoration: BoxDecoration(
                                       color: const Color(
                                         0xFFE38B75,
                                       ),
                                       borderRadius:
-                                          BorderRadius
-                                              .circular(4),
+                                          BorderRadius.circular(4),
                                     ),
                                     child: Text(
                                       filteredReports
                                           .first.status
                                           .toUpperCase(),
-                                      style:
-                                          const TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 9,
                                         fontWeight:
@@ -471,17 +474,13 @@ class _MapScreenState extends State<MapScreen> {
                                   Expanded(
                                     child: Text(
                                       '${filteredReports.first.distance} · ${filteredReports.first.timeAgo}',
-                                      style:
-                                          const TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 11,
-                                        color: Color(
-                                          0xFF7A6B5D,
-                                        ),
+                                        color: Color(0xFF7A6B5D),
                                       ),
                                       maxLines: 1,
                                       overflow:
-                                          TextOverflow
-                                              .ellipsis,
+                                          TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
@@ -493,18 +492,15 @@ class _MapScreenState extends State<MapScreen> {
                         const SizedBox(width: 8),
 
                         ElevatedButton(
-                          style:
-                              ElevatedButton.styleFrom(
+                          style: ElevatedButton.styleFrom(
                             backgroundColor:
                                 const Color(0xFF5C3A21),
-                            foregroundColor:
-                                Colors.white,
+                            foregroundColor: Colors.white,
                             padding:
                                 const EdgeInsets.symmetric(
                               horizontal: 12,
                             ),
-                            shape:
-                                RoundedRectangleBorder(
+                            shape: RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(10),
                             ),
@@ -534,7 +530,7 @@ class _MapScreenState extends State<MapScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 12,
-                    horizontal: 24,
+                    horizontal: 12,
                   ),
                   decoration: const BoxDecoration(
                     color: Color(0xFFFAF6F0),
@@ -568,6 +564,17 @@ class _MapScreenState extends State<MapScreen> {
                           context.go('/map-search');
                         },
                       ),
+
+                      // NEW: Shelter Dashboard navigation
+                      _buildNavItem(
+                        Icons.dashboard_outlined,
+                        'Dashboard',
+                        false,
+                        () {
+                          context.go('/shelter-dashboard');
+                        },
+                      ),
+
                       _buildNavItem(
                         Icons.article_outlined,
                         'Reports',

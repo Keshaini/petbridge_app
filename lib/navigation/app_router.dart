@@ -1,66 +1,73 @@
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-// Authentication screens
-import '../splash_screen.dart';
-import '../onboarding_screen.dart';
-import '../login_screen.dart';
-import '../signup_screen.dart';
 import '../forgot_password_screen.dart';
+import '../login_screen.dart';
+import '../onboarding_screen.dart';
 import '../otp_verification_screen.dart';
-import '../map_screen.dart';
 import '../reset_password_screen.dart';
+import '../signup_screen.dart';
+import '../splash_screen.dart';
 
-// Reporting screens
-import '../screens/reporting/create_report_screen.dart';
-import '../screens/reporting/report_detail_screen.dart';
-import '../screens/reporting/edit_report_screen.dart';
-import '../screens/reporting/my_reports_screen.dart';
-
-// Search
+import '../map_screen.dart';
 import '../screens/search/map_search_screen.dart';
 
-// Shelter screens
+import '../screens/reporting/create_report_screen.dart';
+import '../screens/reporting/edit_report_screen.dart';
+import '../screens/reporting/my_reports_screen.dart';
+import '../screens/reporting/report_detail_screen.dart';
+
 import '../screens/shelter/shelter_dashboard_screen.dart';
 import '../screens/shelter/shelter_report_detail_screen.dart';
-import '../screens/shelter/settings_screen.dart';
 import '../screens/shelter/profile_screen.dart';
 import '../screens/shelter/edit_profile_screen.dart';
-import '../screens/shelter/chat_screen.dart';
+import '../screens/shelter/settings_screen.dart';
 
-const List<String> _publicRoutes = [
-  '/splash',
-  '/onboarding',
-  '/login',
-  '/signup',
-  '/forgot-password',
-  '/otp-verification',
-  '/reset-password',
-];
+import '../screens/shelter/chat_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
 
-  redirect: (context, state) {
-    final loggedIn = FirebaseAuth.instance.currentUser != null;
-    final loc = state.matchedLocation;
+  // ---------------------------------------------------------------------------
+  // AUTHENTICATION REDIRECT
+  // ---------------------------------------------------------------------------
+  redirect: (BuildContext context, GoRouterState state) {
+    final bool isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final String location = state.matchedLocation;
 
-    if (!loggedIn && !_publicRoutes.contains(loc)) {
+    const publicRoutes = <String>{
+      '/splash',
+      '/onboarding',
+      '/login',
+      '/signup',
+      '/forgot-password',
+      '/otp-verification',
+      '/reset-password',
+    };
+
+    final bool isPublicRoute = publicRoutes.contains(location);
+
+    if (!isLoggedIn && !isPublicRoute) {
       return '/login';
     }
 
-    if (loggedIn &&
-        (loc == '/onboarding' ||
-            loc == '/login' ||
-            loc == '/signup')) {
+    if (isLoggedIn &&
+        (location == '/onboarding' ||
+            location == '/login' ||
+            location == '/signup')) {
       return '/home';
     }
 
     return null;
   },
 
-  routes: [
-    // AUTHENTICATION
+  // ---------------------------------------------------------------------------
+  // APPLICATION ROUTES
+  // ---------------------------------------------------------------------------
+  routes: <RouteBase>[
+    // Authentication
     GoRoute(
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
@@ -90,80 +97,98 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const ResetPasswordScreen(),
     ),
 
-    // HOME
+    // Home and map
     GoRoute(
       path: '/home',
       builder: (context, state) => const MapScreen(),
     ),
-
-    // REPORTING
-    GoRoute(
-      path: '/create-report',
-      builder: (context, state) => const CreateReportScreen(),
-    ),
-
-    GoRoute(
-      path: '/my-reports',
-      builder: (context, state) => const MyReportsScreen(),
-    ),
-
-    // Show the newly submitted report details.
-    GoRoute(
-      path: '/report-details/:reportId',
-      builder: (context, state) {
-        final reportId = state.pathParameters['reportId']!;
-
-        return ReportDetailScreen(reportId: reportId);
-      },
-    ),
-
-    // Existing report detail route, using the report ID.
-    GoRoute(
-      path: '/report-detail/:reportId',
-      builder: (context, state) {
-        final reportId = state.pathParameters['reportId']!;
-        return ReportDetailScreen(reportId: reportId);
-      },
-    ),
-
-    GoRoute(
-      path: '/edit-report/:reportId',
-      builder: (context, state) {
-        final reportId = state.pathParameters['reportId']!;
-        return EditReportScreen(reportId: reportId);
-      },
-    ),
-
-    // SEARCH
     GoRoute(
       path: '/map-search',
       builder: (context, state) => const MapSearchScreen(),
     ),
 
-    // SHELTER
+    // Reports
+    GoRoute(
+      path: '/create-report',
+      builder: (context, state) => const CreateReportScreen(),
+    ),
+    GoRoute(
+      path: '/my-reports',
+      builder: (context, state) => const MyReportsScreen(),
+    ),
+    GoRoute(
+      path: '/report-details/:reportId',
+      builder: (context, state) {
+        final reportId = state.pathParameters['reportId']!;
+
+        return ReportDetailScreen(
+          reportId: reportId,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/report-detail/:reportId',
+      builder: (context, state) {
+        final reportId = state.pathParameters['reportId']!;
+
+        return ReportDetailScreen(
+          reportId: reportId,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/edit-report/:reportId',
+      builder: (context, state) {
+        final reportId = state.pathParameters['reportId']!;
+
+        return EditReportScreen(
+          reportId: reportId,
+        );
+      },
+    ),
+
+    // Shelter dashboard
     GoRoute(
       path: '/shelter-dashboard',
-      builder: (context, state) => const ShelterDashboardScreen(),
+      builder: (context, state) =>
+          const ShelterDashboardScreen(),
     ),
+
+    // Shelter report detail
+    // Passes the selected Firestore report document ID.
     GoRoute(
-      path: '/shelter-report-detail',
-      builder: (context, state) => const SightingReportDetailScreen(),
+      path: '/shelter-report-detail/:reportId',
+      builder: (context, state) {
+        final reportId = state.pathParameters['reportId']!;
+
+        return SightingReportDetailScreen(
+          reportId: reportId,
+        );
+      },
     ),
-    GoRoute(
-      path: '/settings',
-      builder: (context, state) => const AppSettingsScreen(),
-    ),
+
+    // Profile and settings
     GoRoute(
       path: '/profile',
-      builder: (context, state) => const UserProfileOverviewScreen(),
+      builder: (context, state) =>
+          const UserProfileOverviewScreen(),
     ),
     GoRoute(
       path: '/edit-profile',
-      builder: (context, state) => const EditProfileScreen(),
+      builder: (context, state) =>
+          const EditProfileScreen(),
     ),
     GoRoute(
+      path: '/settings',
+      builder: (context, state) =>
+          const AppSettingsScreen(),
+    ),
+
+    // Chat
+    GoRoute(
       path: '/chat',
-      builder: (context, state) => const DirectMessageChatScreen(),
+      builder: (context, state) =>
+          const DirectMessageChatScreen(),
     ),
   ],
 );
