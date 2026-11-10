@@ -3,38 +3,41 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../forgot_password_screen.dart';
-import '../login_screen.dart';
+// Authentication screens
+import '../splash_screen.dart';
 import '../onboarding_screen.dart';
+import '../login_screen.dart';
+import '../signup_screen.dart';
+import '../forgot_password_screen.dart';
 import '../otp_verification_screen.dart';
 import '../reset_password_screen.dart';
-import '../signup_screen.dart';
-import '../splash_screen.dart';
 
+// Main screens
 import '../map_screen.dart';
 import '../screens/search/map_search_screen.dart';
+import '../screens/notifications/notifications_screen.dart';
 
+// Reporting screens
 import '../screens/reporting/create_report_screen.dart';
+import '../screens/reporting/report_detail_screen.dart';
 import '../screens/reporting/edit_report_screen.dart';
 import '../screens/reporting/my_reports_screen.dart';
-import '../screens/reporting/report_detail_screen.dart';
 
+// Shelter screens
 import '../screens/shelter/shelter_dashboard_screen.dart';
 import '../screens/shelter/shelter_report_detail_screen.dart';
 import '../screens/shelter/profile_screen.dart';
 import '../screens/shelter/edit_profile_screen.dart';
 import '../screens/shelter/settings_screen.dart';
-
 import '../screens/shelter/chat_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
 
-  // ---------------------------------------------------------------------------
-  // AUTHENTICATION REDIRECT
-  // ---------------------------------------------------------------------------
   redirect: (BuildContext context, GoRouterState state) {
-    final bool isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final bool isLoggedIn =
+        FirebaseAuth.instance.currentUser != null;
+
     final String location = state.matchedLocation;
 
     const publicRoutes = <String>{
@@ -63,9 +66,6 @@ final GoRouter appRouter = GoRouter(
     return null;
   },
 
-  // ---------------------------------------------------------------------------
-  // APPLICATION ROUTES
-  // ---------------------------------------------------------------------------
   routes: <RouteBase>[
     // Authentication
     GoRoute(
@@ -97,7 +97,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const ResetPasswordScreen(),
     ),
 
-    // Home and map
+    // Home and search
     GoRoute(
       path: '/home',
       builder: (context, state) => const MapScreen(),
@@ -106,8 +106,12 @@ final GoRouter appRouter = GoRouter(
       path: '/map-search',
       builder: (context, state) => const MapSearchScreen(),
     ),
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationsScreen(),
+    ),
 
-    // Reports
+    // Reporting
     GoRoute(
       path: '/create-report',
       builder: (context, state) => const CreateReportScreen(),
@@ -115,16 +119,6 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/my-reports',
       builder: (context, state) => const MyReportsScreen(),
-    ),
-    GoRoute(
-      path: '/report-details/:reportId',
-      builder: (context, state) {
-        final reportId = state.pathParameters['reportId']!;
-
-        return ReportDetailScreen(
-          reportId: reportId,
-        );
-      },
     ),
     GoRoute(
       path: '/report-detail/:reportId',
@@ -147,15 +141,11 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-    // Shelter dashboard
+    // Shelter
     GoRoute(
       path: '/shelter-dashboard',
-      builder: (context, state) =>
-          const ShelterDashboardScreen(),
+      builder: (context, state) => const ShelterDashboardScreen(),
     ),
-
-    // Shelter report detail
-    // Passes the selected Firestore report document ID.
     GoRoute(
       path: '/shelter-report-detail/:reportId',
       builder: (context, state) {
@@ -170,25 +160,21 @@ final GoRouter appRouter = GoRouter(
     // Profile and settings
     GoRoute(
       path: '/profile',
-      builder: (context, state) =>
-          const UserProfileOverviewScreen(),
+      builder: (context, state) => const UserProfileOverviewScreen(),
     ),
     GoRoute(
       path: '/edit-profile',
-      builder: (context, state) =>
-          const EditProfileScreen(),
+      builder: (context, state) => const EditProfileScreen(),
     ),
     GoRoute(
       path: '/settings',
-      builder: (context, state) =>
-          const AppSettingsScreen(),
+      builder: (context, state) => const AppSettingsScreen(),
     ),
 
     // Chat
     GoRoute(
       path: '/chat',
-      builder: (context, state) =>
-          const DirectMessageChatScreen(),
+      builder: (context, state) => const DirectMessageChatScreen(),
     ),
   ],
 );

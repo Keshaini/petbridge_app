@@ -89,6 +89,7 @@ class _MapScreenState extends State<MapScreen> {
       setState(() {
         _locationStatus = 'Location services disabled.';
       });
+
       return;
     }
 
@@ -104,6 +105,7 @@ class _MapScreenState extends State<MapScreen> {
         setState(() {
           _locationStatus = 'Location permission denied.';
         });
+
         return;
       }
     }
@@ -115,6 +117,7 @@ class _MapScreenState extends State<MapScreen> {
         _locationStatus =
             'Location permission permanently denied.';
       });
+
       return;
     }
 
@@ -250,25 +253,54 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         ],
                       ),
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5EBE1),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFFEEDCCF),
+
+                      // Notification + Profile buttons
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5EBE1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFEEDCCF),
+                              ),
+                            ),
+                            child: IconButton(
+                              onPressed: () {
+                                context.push('/notifications');
+                              },
+                              icon: const Icon(
+                                Icons.notifications_none_rounded,
+                                color: Color(0xFF5C3A21),
+                              ),
+                              tooltip: 'Notifications',
+                            ),
                           ),
-                        ),
-                        child: GestureDetector(
-                          onTap: () {
-                            context.go('/profile');
-                          },
-                          child: const Icon(
-                            Icons.person_outline,
-                            color: Color(0xFF5C3A21),
+                          const SizedBox(width: 10),
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5EBE1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFEEDCCF),
+                              ),
+                            ),
+                            child: IconButton(
+                              onPressed: () {
+                                context.go('/profile');
+                              },
+                              icon: const Icon(
+                                Icons.person_outline,
+                                color: Color(0xFF5C3A21),
+                              ),
+                              tooltip: 'Profile',
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
