@@ -7,6 +7,7 @@ class ReportModel {
   final String category;
   final String animalType;
   final String photoUrl;
+  final String photoHash;
   final GeoPoint location;
   final String locationLabel;
   final double locationRadius;
@@ -22,6 +23,7 @@ class ReportModel {
     required this.category,
     this.animalType = '',
     required this.photoUrl,
+    this.photoHash = '',
     required this.location,
     this.locationLabel = '',
     required this.locationRadius,
@@ -44,6 +46,7 @@ class ReportModel {
       category: map['category'] as String? ?? '',
       animalType: map['animalType'] as String? ?? '',
       photoUrl: map['photoUrl'] as String? ?? '',
+      photoHash: map['photoHash'] as String? ?? '',
       location: rawLocation is GeoPoint
           ? rawLocation
           : const GeoPoint(6.8649, 79.8997),
@@ -67,6 +70,7 @@ class ReportModel {
       'category': category,
       'animalType': animalType,
       'photoUrl': photoUrl,
+      'photoHash': photoHash,
       'location': location,
       'locationLabel': locationLabel,
       'locationRadius': locationRadius,

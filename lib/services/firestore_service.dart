@@ -1,7 +1,16 @@
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/report_model.dart';
+
+/// A possible duplicate: the existing report and why it matched.
+class DuplicateMatch {
+  final ReportModel report;
+  final String reason;
+
+  const DuplicateMatch({required this.report, required this.reason});
+}
 
 class FirestoreService {
   static final CollectionReference<Map<String, dynamic>> _reportsRef =
@@ -46,17 +55,21 @@ class FirestoreService {
 
   // ---------------------------------------------------------------------------
   // REAL-TIME READ: Get all active reports, newest first.
-  // Used by the shelter dashboard and active report feeds.
+  // Sorted in Dart so no composite Firestore index is required.
+  // Used by Home, the shelter dashboard and active report feeds.
   // ---------------------------------------------------------------------------
   static Stream<List<ReportModel>> getActiveReports() {
     return _reportsRef
         .where('status', isEqualTo: 'Active')
-        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final reports = snapshot.docs
           .map((doc) => ReportModel.fromMap(doc.data(), doc.id))
           .toList();
+
+      reports.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      return reports;
     });
   }
 
@@ -216,31 +229,127 @@ class FirestoreService {
   }
 
   // ---------------------------------------------------------------------------
-  // DUPLICATE CHECK: Look for a report with the same category created within
-  // the previous two hours.
+  // DUPLICATE CHECK (FR2): compares a new report with the ACTIVE reports.
+  // A match is any of:
+  //   1. the same photo (identical file hash)
+  //   2. the same pet name (ignoring case and spaces)
+  //   3. the same category within [maxKm] and the last [window]
+  // Uses a single equality filter, so no composite index is needed.
   // ---------------------------------------------------------------------------
-  static Future<ReportModel?> checkForDuplicate(
-    String category,
-  ) async {
-    final cutoff = DateTime.now().subtract(
-      const Duration(hours: 2),
-    );
+  static Future<DuplicateMatch?> findDuplicate({
+    required String category,
+    required String petName,
+    required String photoHash,
+    required GeoPoint location,
+    double maxKm = 0.5,
+    Duration window = const Duration(hours: 24),
+  }) async {
+    final snapshot =
+        await _reportsRef.where('status', isEqualTo: 'Active').get();
+
+    final name = petName.trim().toLowerCase();
+    final cutoff = DateTime.now().subtract(window);
+
+    ReportModel? sameName;
+    ReportModel? nearby;
+    double nearbyKm = double.infinity;
+
+    for (final doc in snapshot.docs) {
+      final report = ReportModel.fromMap(doc.data(), doc.id);
+
+      // 1. Same photo: the strongest signal, so return straight away.
+      if (photoHash.isNotEmpty && report.photoHash == photoHash) {
+        return DuplicateMatch(
+          report: report,
+          reason: 'The same photo is already used in an active report '
+              '(${report.category}, ${_ago(report.timestamp)}).',
+        );
+      }
+
+      // 2. Same pet name.
+      if (sameName == null &&
+          name.isNotEmpty &&
+          report.petName.trim().toLowerCase() == name) {
+        sameName = report;
+      }
+
+      // 3. Same category, close by, recently.
+      if (report.category == category && report.timestamp.isAfter(cutoff)) {
+        final km = _distanceKm(location, report.location);
+
+        if (km <= maxKm && km < nearbyKm) {
+          nearbyKm = km;
+          nearby = report;
+        }
+      }
+    }
+
+    if (sameName != null) {
+      return DuplicateMatch(
+        report: sameName,
+        reason: 'A report for "${sameName.petName}" is already active '
+            '(${sameName.category}, ${_ago(sameName.timestamp)}).',
+      );
+    }
+
+    if (nearby != null) {
+      return DuplicateMatch(
+        report: nearby,
+        reason: 'A similar ${nearby.category} report was submitted '
+            '${_ago(nearby.timestamp)}, about ${_formatKm(nearbyKm)} away.',
+      );
+    }
+
+    return null;
+  }
+
+  // Older callers: category and time window only. Also index-free now.
+  static Future<ReportModel?> checkForDuplicate(String category) async {
+    final cutoff = DateTime.now().subtract(const Duration(hours: 2));
 
     final snapshot = await _reportsRef
         .where('category', isEqualTo: category)
-        .where(
-          'timestamp',
-          isGreaterThan: Timestamp.fromDate(cutoff),
-        )
-        .limit(1)
+        .where('status', isEqualTo: 'Active')
         .get();
 
-    if (snapshot.docs.isEmpty) {
-      return null;
+    for (final doc in snapshot.docs) {
+      final report = ReportModel.fromMap(doc.data(), doc.id);
+      if (report.timestamp.isAfter(cutoff)) return report;
     }
 
-    final doc = snapshot.docs.first;
+    return null;
+  }
 
-    return ReportModel.fromMap(doc.data(), doc.id);
+  // ---------------------------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------------------------
+  static double _distanceKm(GeoPoint a, GeoPoint b) {
+    const earthRadiusKm = 6371.0;
+
+    final dLat = _radians(b.latitude - a.latitude);
+    final dLng = _radians(b.longitude - a.longitude);
+
+    final h = math.pow(math.sin(dLat / 2), 2) +
+        math.cos(_radians(a.latitude)) *
+            math.cos(_radians(b.latitude)) *
+            math.pow(math.sin(dLng / 2), 2);
+
+    return 2 * earthRadiusKm * math.asin(math.sqrt(h));
+  }
+
+  static double _radians(double degrees) => degrees * math.pi / 180;
+
+  static String _formatKm(double km) {
+    if (km < 1) return '${(km * 1000).round()} m';
+    return '${km.toStringAsFixed(1)} km';
+  }
+
+  static String _ago(DateTime time) {
+    final diff = DateTime.now().difference(time);
+
+    if (diff.isNegative || diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} minutes ago';
+    if (diff.inHours < 24) return '${diff.inHours} hours ago';
+    return '${diff.inDays} days ago';
   }
 }
