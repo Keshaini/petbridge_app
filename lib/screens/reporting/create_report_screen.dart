@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -38,12 +39,15 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     79.8997,
   );
 
-  String locationLabel = 'Nugegoda Junction';
-  String locationAccuracy = 'Default location · Please verify';
+  String locationLabel = 'Getting current location...';
+  String locationAccuracy = 'Please wait while GPS is detected.';
+
+  bool hasValidLocation = false;
 
   final TextEditingController nameController = TextEditingController();
 
-  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController descriptionController =
+      TextEditingController();
 
   final List<String> categories = [
     'Lost',
@@ -60,10 +64,100 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+
+    // Automatically try to get the device's current location
+    // when the Create Report screen opens.
+    _getCurrentLocation();
+  }
+
+  @override
   void dispose() {
     nameController.dispose();
     descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      // Check whether the device's location services are enabled.
+      final serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        _setLocationUnavailable(
+          'Location services are turned off. Please adjust the pin.',
+        );
+        return;
+      }
+
+      // Check the current permission status.
+      LocationPermission permission =
+          await Geolocator.checkPermission();
+
+      // Ask the user for permission if it has not been granted yet.
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      // The user denied the permission.
+      if (permission == LocationPermission.denied) {
+        _setLocationUnavailable(
+          'Location permission denied. Please adjust the pin.',
+        );
+        return;
+      }
+
+      // The user permanently denied the permission.
+      if (permission == LocationPermission.deniedForever) {
+        _setLocationUnavailable(
+          'Location permission permanently denied. '
+          'Please enable it in Settings or adjust the pin.',
+        );
+        return;
+      }
+
+      // Get the current device location.
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        selectedLocation = GeoPoint(
+          position.latitude,
+          position.longitude,
+        );
+
+        locationLabel = 'Current device location';
+
+        locationAccuracy =
+            'GPS accuracy: ±${position.accuracy.toStringAsFixed(0)} m';
+
+        hasValidLocation = true;
+      });
+    } catch (error) {
+      debugPrint('GPS location error: $error');
+
+      _setLocationUnavailable(
+        'Unable to detect location. Please adjust the pin.',
+      );
+    }
+  }
+
+  void _setLocationUnavailable(String message) {
+    if (!mounted) return;
+
+    setState(() {
+      locationLabel = 'Location unavailable';
+      locationAccuracy = message;
+      hasValidLocation = false;
+    });
   }
 
   Future<void> _pickAndUploadPhoto() async {
@@ -101,7 +195,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       if (url == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Photo upload failed, please try again.'),
+            content: Text(
+              'Photo upload failed, please try again.',
+            ),
           ),
         );
       }
@@ -141,16 +237,32 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     setState(() {
       selectedLocation = location;
 
-      locationLabel = result['label'] as String? ?? 'Selected map location';
+      locationLabel =
+          result['label'] as String? ?? 'Selected map location';
 
       locationAccuracy = 'Map coordinates · '
           '${location.latitude.toStringAsFixed(5)}, '
           '${location.longitude.toStringAsFixed(5)}';
+
+      // A manually selected map location is also a valid location.
+      hasValidLocation = true;
     });
   }
 
   Future<void> _onContinue() async {
     if (isSubmitting || isUploadingPhoto) return;
+
+    // Prevent the default placeholder coordinates from being submitted.
+    if (!hasValidLocation) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please wait for GPS or select a location using Adjust pin.',
+          ),
+        ),
+      );
+      return;
+    }
 
     if (selectedCategory == null ||
         selectedAnimalType == null ||
@@ -195,15 +307,17 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           context: context,
           builder: (context) => DuplicateWarningModal(
             existingReportSummary: match!.reason,
-            existingReportPhotoUrl: match.report.photoUrl.isNotEmpty
-                ? match.report.photoUrl
-                : null,
+            existingReportPhotoUrl:
+                match.report.photoUrl.isNotEmpty
+                    ? match.report.photoUrl
+                    : null,
           ),
         );
 
         if (!mounted) return;
 
-        // "Yes, same animal" or dismissed: do not create a second report.
+        // "Yes, same animal" or dismissed:
+        // do not create a second report.
         if (isDuplicate == null || isDuplicate == true) {
           return;
         }
@@ -303,7 +417,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
-                      onTap: isUploadingPhoto ? null : _pickAndUploadPhoto,
+                      onTap:
+                          isUploadingPhoto
+                              ? null
+                              : _pickAndUploadPhoto,
                       child: Container(
                         width: double.infinity,
                         height: 160,
@@ -314,56 +431,76 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             color: AppColors.border,
                           ),
                         ),
-                        child: uploadedPhotoUrl != null && !isUploadingPhoto
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  uploadedPhotoUrl!,
-                                  fit: BoxFit.contain,
-                                  width: double.infinity,
-                                  height: 160,
-                                  errorBuilder: (context, error, stack) =>
-                                      const Center(
-                                    child: Icon(
-                                      Icons.broken_image_outlined,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (isUploadingPhoto)
-                                      const CircularProgressIndicator(
-                                        color: AppColors.primary,
-                                      )
-                                    else ...[
-                                      const CircleAvatar(
-                                        radius: 22,
-                                        backgroundColor:
-                                            AppColors.accentPeach,
+                        child:
+                            uploadedPhotoUrl != null &&
+                                    !isUploadingPhoto
+                                ? ClipRRect(
+                                    borderRadius:
+                                        BorderRadius.circular(16),
+                                    child: Image.network(
+                                      uploadedPhotoUrl!,
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: 160,
+                                      errorBuilder:
+                                          (
+                                            context,
+                                            error,
+                                            stack,
+                                          ) =>
+                                              const Center(
                                         child: Icon(
-                                          Icons.camera_alt_outlined,
-                                          color: AppColors.primary,
+                                          Icons
+                                              .broken_image_outlined,
+                                          color:
+                                              AppColors
+                                                  .textSecondary,
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        'Add a clear photo',
-                                        style: AppTextStyles.heading2,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'A photo helps owners identify '
-                                        'the pet fast',
-                                        style: AppTextStyles.caption,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Column(
+                                      mainAxisSize:
+                                          MainAxisSize.min,
+                                      children: [
+                                        if (isUploadingPhoto)
+                                          const CircularProgressIndicator(
+                                            color:
+                                                AppColors.primary,
+                                          )
+                                        else ...[
+                                          const CircleAvatar(
+                                            radius: 22,
+                                            backgroundColor:
+                                                AppColors
+                                                    .accentPeach,
+                                            child: Icon(
+                                              Icons
+                                                  .camera_alt_outlined,
+                                              color:
+                                                  AppColors.primary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            'Add a clear photo',
+                                            style:
+                                                AppTextStyles
+                                                    .heading2,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'A photo helps owners '
+                                            'identify the pet fast',
+                                            style:
+                                                AppTextStyles
+                                                    .caption,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -375,33 +512,38 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: categories.map((category) {
-                        final selected = selectedCategory == category;
+                      children:
+                          categories.map((category) {
+                            final selected =
+                                selectedCategory == category;
 
-                        return ChoiceChip(
-                          label: Text(category),
-                          selected: selected,
-                          onSelected: (_) {
-                            setState(() {
-                              selectedCategory = category;
-                            });
-                          },
-                          selectedColor: AppColors.primary,
-                          backgroundColor: AppColors.cardBackground,
-                          labelStyle: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : AppColors.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: const BorderSide(
-                              color: AppColors.border,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                            return ChoiceChip(
+                              label: Text(category),
+                              selected: selected,
+                              onSelected: (_) {
+                                setState(() {
+                                  selectedCategory = category;
+                                });
+                              },
+                              selectedColor: AppColors.primary,
+                              backgroundColor:
+                                  AppColors.cardBackground,
+                              labelStyle: TextStyle(
+                                color:
+                                    selected
+                                        ? Colors.white
+                                        : AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(20),
+                                side: const BorderSide(
+                                  color: AppColors.border,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                     ),
                     const SizedBox(height: 24),
                     Text(
@@ -412,52 +554,60 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: animalTypes.map((animal) {
-                        final selected = selectedAnimalType == animal;
+                      children:
+                          animalTypes.map((animal) {
+                            final selected =
+                                selectedAnimalType == animal;
 
-                        final IconData animalIcon;
+                            final IconData animalIcon;
 
-                        switch (animal) {
-                          case 'Dog':
-                          case 'Cat':
-                            animalIcon = Icons.pets;
-                          case 'Bird':
-                            animalIcon = Icons.air;
-                          default:
-                            animalIcon = Icons.category_outlined;
-                        }
+                            switch (animal) {
+                              case 'Dog':
+                              case 'Cat':
+                                animalIcon = Icons.pets;
+                              case 'Bird':
+                                animalIcon = Icons.air;
+                              default:
+                                animalIcon =
+                                    Icons.category_outlined;
+                            }
 
-                        return ChoiceChip(
-                          avatar: Icon(
-                            animalIcon,
-                            size: 18,
-                            color: selected
-                                ? Colors.white
-                                : AppColors.textSecondary,
-                          ),
-                          label: Text(animal),
-                          selected: selected,
-                          onSelected: (_) {
-                            setState(() {
-                              selectedAnimalType = animal;
-                            });
-                          },
-                          selectedColor: AppColors.primary,
-                          backgroundColor: AppColors.cardBackground,
-                          labelStyle: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : AppColors.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: const BorderSide(
-                              color: AppColors.border,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                            return ChoiceChip(
+                              avatar: Icon(
+                                animalIcon,
+                                size: 18,
+                                color:
+                                    selected
+                                        ? Colors.white
+                                        : AppColors
+                                            .textSecondary,
+                              ),
+                              label: Text(animal),
+                              selected: selected,
+                              onSelected: (_) {
+                                setState(() {
+                                  selectedAnimalType = animal;
+                                });
+                              },
+                              selectedColor: AppColors.primary,
+                              backgroundColor:
+                                  AppColors.cardBackground,
+                              labelStyle: TextStyle(
+                                color:
+                                    selected
+                                        ? Colors.white
+                                        : AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(20),
+                                side: const BorderSide(
+                                  color: AppColors.border,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                     ),
                     const SizedBox(height: 24),
                     Text(
@@ -491,8 +641,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             width: 56,
                             height: 56,
                             decoration: BoxDecoration(
-                              color: AppColors.accentPeach.withOpacity(0.4),
-                              borderRadius: BorderRadius.circular(10),
+                              color: AppColors.accentPeach
+                                  .withOpacity(0.4),
+                              borderRadius:
+                                  BorderRadius.circular(10),
                             ),
                             child: const Icon(
                               Icons.location_on,
@@ -502,38 +654,49 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   locationLabel,
-                                  style: AppTextStyles.bodyText.copyWith(
-                                    fontWeight: FontWeight.w600,
+                                  style:
+                                      AppTextStyles.bodyText
+                                          .copyWith(
+                                    fontWeight:
+                                        FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   locationAccuracy,
-                                  style: AppTextStyles.caption,
+                                  style:
+                                      AppTextStyles.caption,
                                 ),
                                 const SizedBox(height: 8),
                                 GestureDetector(
                                   onTap: _adjustPin,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(
+                                    padding:
+                                        const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.accentPeach,
+                                      color:
+                                          AppColors.accentPeach,
                                       borderRadius:
-                                          BorderRadius.circular(20),
+                                          BorderRadius.circular(
+                                              20),
                                     ),
                                     child: const Text(
                                       'Adjust pin',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary,
+                                        fontWeight:
+                                            FontWeight.w600,
+                                        color:
+                                            AppColors
+                                                .textPrimary,
                                       ),
                                     ),
                                   ),
@@ -554,12 +717,15 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       controller: descriptionController,
                       maxLines: 4,
                       decoration: InputDecoration(
-                        hintText: 'Colour, collar, behaviour, '
+                        hintText:
+                            'Colour, collar, behaviour, '
                             'distinctive marks...',
                         filled: true,
-                        fillColor: AppColors.cardBackground,
+                        fillColor:
+                            AppColors.cardBackground,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(12),
                           borderSide: const BorderSide(
                             color: AppColors.border,
                           ),
@@ -572,9 +738,14 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               ),
             ),
             PrimaryButton(
-              label: isSubmitting ? 'Submitting...' : 'Continue',
+              label:
+                  isSubmitting
+                      ? 'Submitting...'
+                      : 'Continue',
               onPressed:
-                  isSubmitting || isUploadingPhoto ? () {} : _onContinue,
+                  isSubmitting || isUploadingPhoto
+                      ? () {}
+                      : _onContinue,
             ),
           ],
         ),

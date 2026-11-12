@@ -188,8 +188,14 @@ final GoRouter appRouter = GoRouter(
 
     // Chat
     GoRoute(
-      path: '/chat',
-      builder: (context, state) => const DirectMessageChatScreen(),
+      path: '/chat/:reportId',
+      builder: (context, state) {
+        final reportId = state.pathParameters['reportId']!;
+
+        return DirectMessageChatScreen(
+          reportId: reportId,
+        );
+      },
     ),
   ],
 );

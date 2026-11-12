@@ -114,7 +114,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   // Opens the direct message screen. push() keeps this screen underneath,
   // so the back arrow in the chat returns to the report.
   void _messageReporter() {
-    context.push('/chat');
+    context.push('/chat/${widget.reportId}');
   }
 
   @override

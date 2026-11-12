@@ -352,4 +352,64 @@ class FirestoreService {
     if (diff.inHours < 24) return '${diff.inHours} hours ago';
     return '${diff.inDays} days ago';
   }
+
+  // ---------------------------------------------------------------------------
+  // CHAT
+  // ---------------------------------------------------------------------------
+
+  static CollectionReference<Map<String, dynamic>> chatMessagesRef(
+    String reportId,
+  ) {
+    return FirebaseFirestore.instance
+        .collection('chats')
+        .doc(reportId)
+        .collection('messages');
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> getChatMessages(
+    String reportId,
+  ) {
+    return chatMessagesRef(reportId)
+        .orderBy('timestamp', descending: false)
+        .snapshots();
+  }
+
+  static Future<void> sendChatMessage({
+    required String reportId,
+    required String senderId,
+    required String text,
+  }) async {
+    final cleanText = text.trim();
+
+    if (cleanText.isEmpty) return;
+
+    final chatRef =
+        FirebaseFirestore.instance.collection('chats').doc(reportId);
+
+    await chatRef.set({
+      'reportId': reportId,
+      'lastMessage': cleanText,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await chatMessagesRef(reportId).add({
+      'senderId': senderId,
+      'text': cleanText,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<Map<String, dynamic>?> getUserProfile(
+    String uid,
+  ) async {
+    if (uid.isEmpty || uid == 'guest') return null;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+
+    return doc.data();
+  }
 }
