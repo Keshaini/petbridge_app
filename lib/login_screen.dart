@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,7 +34,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // Validate the input before contacting Firebase.
     if (email.isEmpty || password.isEmpty) {
       _showMessage('Please enter your email address and password.');
       return;
@@ -48,55 +47,38 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      // Authenticate the user with Firebase.
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      await AuthService.signIn(email, password);
 
       if (!mounted) return;
 
-      // Navigate only after Firebase confirms successful login.
       context.go('/home');
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-
-      String message;
-
-      switch (e.code) {
-        case 'invalid-email':
-          message = 'Please enter a valid email address.';
-          break;
-        case 'user-not-found':
-        case 'wrong-password':
-        case 'invalid-credential':
-          message = 'Incorrect email or password.';
-          break;
-        case 'user-disabled':
-          message = 'This account has been disabled.';
-          break;
-        case 'too-many-requests':
-          message = 'Too many attempts. Please try again later.';
-          break;
-        case 'network-request-failed':
-          message = 'Network error. Check your internet connection.';
-          break;
-        case 'operation-not-allowed':
-          message =
-              'Email and password login is not enabled in Firebase.';
-          break;
-        default:
-          message = 'Login failed. Please try again.';
-      }
-
-      _showMessage(message);
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Something went wrong. Please try again.');
+      _showMessage(AuthService.message(e));
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _googleLogin() async {
+    setState(() => _loading = true);
+
+    try {
+      final result = await AuthService.signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (result == null) {
+        _showMessage('Google sign-in was cancelled.');
+        return;
       }
+
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(AuthService.message(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -148,7 +130,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Email field
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -170,7 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Password field
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
@@ -207,7 +187,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Forgot password
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -225,7 +204,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Login button
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -257,17 +235,59 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                 ),
               ),
+
               const SizedBox(height: 20),
 
-              // Sign up navigation
+              const Row(
+                children: [
+                  Expanded(child: Divider(color: Color(0xFFE4D5C8))),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'OR',
+                      style: TextStyle(color: Color(0xFF7A6B5D)),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: Color(0xFFE4D5C8))),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: _loading ? null : _googleLogin,
+                  icon: Image.asset(
+                    'assets/images/google-logo-png.webp',
+                    width: 22,
+                    height: 22,
+                  ),
+                  label: const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      color: Color(0xFF3D2314),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFE4D5C8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
                     "Don't have an account? ",
-                    style: TextStyle(
-                      color: Color(0xFF7A6B5D),
-                    ),
+                    style: TextStyle(color: Color(0xFF7A6B5D)),
                   ),
                   GestureDetector(
                     onTap: _loading
