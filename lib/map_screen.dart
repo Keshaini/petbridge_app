@@ -43,12 +43,23 @@ class _MapScreenState extends State<MapScreen> {
   String _userName = '';
   Position? _position;
 
+  // Whether the currently logged-in user is a shelter user.
+  bool _isShelter = false;
+
   @override
   void initState() {
     super.initState();
     _reportsStream = FirestoreService.getActiveReports();
     _loadUserName();
     _determinePosition();
+
+    // Check whether the logged-in user is a shelter.
+    // The Dashboard item is shown only for shelter users.
+    AuthService.isShelter().then((value) {
+      if (mounted) {
+        setState(() => _isShelter = value);
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -414,7 +425,9 @@ class _MapScreenState extends State<MapScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected ? _categoryColor(report.category) : _darkBrown,
+                    color: isSelected
+                        ? _categoryColor(report.category)
+                        : _darkBrown,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -520,7 +533,10 @@ class _MapScreenState extends State<MapScreen> {
               decoration: const InputDecoration(
                 icon: Icon(Icons.search, color: _brown),
                 hintText: 'Search area or pet name...',
-                hintStyle: TextStyle(color: Color(0xFF9E8B7C), fontSize: 14),
+                hintStyle: TextStyle(
+                  color: Color(0xFF9E8B7C),
+                  fontSize: 14,
+                ),
                 border: InputBorder.none,
               ),
             ),
@@ -538,7 +554,8 @@ class _MapScreenState extends State<MapScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedCategory = category),
+                    onTap: () =>
+                        setState(() => _selectedCategory = category),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -605,10 +622,16 @@ class _MapScreenState extends State<MapScreen> {
             SizedBox(
               width: 22,
               height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2, color: _brown),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: _brown,
+              ),
             ),
             SizedBox(width: 12),
-            Text('Loading reports...', style: TextStyle(color: _muted)),
+            Text(
+              'Loading reports...',
+              style: TextStyle(color: _muted),
+            ),
           ],
         ),
       );
@@ -739,7 +762,10 @@ class _MapScreenState extends State<MapScreen> {
             ),
             onPressed: () =>
                 context.push('/report-detail/${selected.reportId}'),
-            child: const Text('View', style: TextStyle(fontSize: 12)),
+            child: const Text(
+              'View',
+              style: TextStyle(fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -750,7 +776,11 @@ class _MapScreenState extends State<MapScreen> {
     return Container(
       color: _chipBg,
       alignment: Alignment.center,
-      child: const Icon(Icons.pets, color: _brown, size: 28),
+      child: const Icon(
+        Icons.pets,
+        color: _brown,
+        size: 28,
+      ),
     );
   }
 
@@ -777,8 +807,15 @@ class _MapScreenState extends State<MapScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: const BoxDecoration(
         color: _cream,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(top: BorderSide(color: _border, width: 1)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+        border: Border(
+          top: BorderSide(
+            color: _border,
+            width: 1,
+          ),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -795,12 +832,16 @@ class _MapScreenState extends State<MapScreen> {
             false,
             () => context.go('/map-search'),
           ),
-          _buildNavItem(
-            Icons.dashboard_outlined,
-            'Dashboard',
-            false,
-            () => context.go('/shelter-dashboard'),
-          ),
+
+          // Show Dashboard only for shelter users.
+          if (_isShelter)
+            _buildNavItem(
+              Icons.dashboard_outlined,
+              'Dashboard',
+              false,
+              () => context.go('/shelter-dashboard'),
+            ),
+
           _buildNavItem(
             Icons.article_outlined,
             'Reports',
@@ -838,7 +879,8 @@ class _MapScreenState extends State<MapScreen> {
             label,
             style: TextStyle(
               fontSize: 11,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontWeight:
+                  isSelected ? FontWeight.bold : FontWeight.normal,
               color: isSelected ? _brown : const Color(0xFF9E8B7C),
             ),
           ),

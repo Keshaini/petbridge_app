@@ -1,4 +1,3 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,9 @@ import '../signup_screen.dart';
 import '../forgot_password_screen.dart';
 import '../otp_verification_screen.dart';
 import '../reset_password_screen.dart';
+
+// Services
+import '../services/auth_service.dart';
 
 // Main screens
 import '../map_screen.dart';
@@ -34,11 +36,11 @@ import '../screens/shelter/chat_screen.dart';
 final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
 
-  redirect: (BuildContext context, GoRouterState state) {
-    final bool isLoggedIn =
+  redirect: (BuildContext context, GoRouterState state) async {
+    final bool loggedIn =
         FirebaseAuth.instance.currentUser != null;
 
-    final String location = state.matchedLocation;
+    final String loc = state.matchedLocation;
 
     const publicRoutes = <String>{
       '/splash',
@@ -50,17 +52,30 @@ final GoRouter appRouter = GoRouter(
       '/reset-password',
     };
 
-    final bool isPublicRoute = publicRoutes.contains(location);
+    final bool isPublicRoute = publicRoutes.contains(loc);
 
-    if (!isLoggedIn && !isPublicRoute) {
+    // If the user is not logged in and tries to access
+    // a protected page, send them to Login.
+    if (!loggedIn && !isPublicRoute) {
       return '/login';
     }
 
-    if (isLoggedIn &&
-        (location == '/onboarding' ||
-            location == '/login' ||
-            location == '/signup')) {
+    // If the user is already logged in, don't allow them
+    // to go back to onboarding/login/signup.
+    if (loggedIn &&
+        (loc == '/onboarding' ||
+            loc == '/login' ||
+            loc == '/signup')) {
       return '/home';
+    }
+
+    // Shelter-only screens.
+    // Any logged-in user can technically enter the URL,
+    // so check their role before allowing access.
+    if (loggedIn && loc.startsWith('/shelter-')) {
+      if (!await AuthService.isShelter()) {
+        return '/home';
+      }
     }
 
     return null;

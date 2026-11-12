@@ -12,7 +12,20 @@
           "package_name": "com.example.petbridge_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1077441480461-0u8u99oacfhrkfegr62iv9897nojp3mt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.petbridge_app",
+            "certificate_hash": "eedc4858ea30a8ab10941f7a1450e552aa21f385"
+          }
+        },
+        {
+          "client_id": "1077441480461-begsgh3k44271bmaia8349at47p0l786.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD4fJvPrCyMgigKqk3bNRvuDkVqr-n3nZQ"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1077441480461-begsgh3k44271bmaia8349at47p0l786.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1077441480461-svc7htt9pcd9jjt1m2vj5pvjipdeeor0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.petbridgeApp"
+              }
+            }
+          ]
         }
       }
     }
