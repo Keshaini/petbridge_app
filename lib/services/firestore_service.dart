@@ -9,7 +9,10 @@ class DuplicateMatch {
   final ReportModel report;
   final String reason;
 
-  const DuplicateMatch({required this.report, required this.reason});
+  const DuplicateMatch({
+    required this.report,
+    required this.reason,
+  });
 }
 
 class FirestoreService {
@@ -108,6 +111,9 @@ class FirestoreService {
   // ---------------------------------------------------------------------------
   // CLAIM: Assign an active report to a shelter.
   // A transaction prevents two shelters from claiming it simultaneously.
+  //
+  // Also creates a notification for the original report owner when a new
+  // shelter claim is made.
   // ---------------------------------------------------------------------------
   static Future<void> claimReport({
     required String reportId,
@@ -127,8 +133,12 @@ class FirestoreService {
       }
 
       final data = snapshot.data()!;
+
       final status = data['status'] as String? ?? 'Active';
       final claimedBy = data['claimedBy'] as String? ?? '';
+      final ownerUid = data['ownerUid'] as String? ?? '';
+      final petName = data['petName'] as String? ?? '';
+      final category = data['category'] as String? ?? '';
 
       if (status != 'Active') {
         throw Exception('This report is no longer active.');
@@ -138,10 +148,40 @@ class FirestoreService {
         throw Exception('This report has already been claimed.');
       }
 
+      final isNewClaim = claimedBy.isEmpty;
+
       transaction.update(docRef, {
         'claimedBy': shelterUid,
         'claimedAt': FieldValue.serverTimestamp(),
       });
+
+      // Create a notification only when this is a new claim.
+      if (isNewClaim &&
+          ownerUid.isNotEmpty &&
+          ownerUid != shelterUid) {
+        final notificationRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(ownerUid)
+            .collection('notifications')
+            .doc();
+
+        final displayPetName = petName.trim().isNotEmpty
+            ? petName.trim()
+            : 'your pet';
+
+        transaction.set(notificationRef, {
+          'category': 'Alerts',
+          'title': 'Report claimed',
+          'body':
+              'Your report about $displayPetName has been claimed by a shelter.',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'route': '/report-detail/$reportId',
+          'action': 'View report',
+          'tags': category.trim().isNotEmpty ? [category] : [],
+          'tagColors': category.trim().isNotEmpty ? ['green'] : [],
+        });
+      }
     });
   }
 
@@ -184,6 +224,8 @@ class FirestoreService {
   // ---------------------------------------------------------------------------
   // RESOLVE: Mark an active report as resolved.
   // Only the shelter that claimed it may resolve it.
+  //
+  // Also creates a notification for the original report owner.
   // ---------------------------------------------------------------------------
   static Future<void> resolveReport({
     required String reportId,
@@ -203,6 +245,10 @@ class FirestoreService {
       }
 
       final data = snapshot.data()!;
+
+      final ownerUid = data['ownerUid'] as String? ?? '';
+      final petName = data['petName'] as String? ?? '';
+      final category = data['category'] as String? ?? '';
       final claimedBy = data['claimedBy'] as String? ?? '';
       final status = data['status'] as String? ?? 'Active';
 
@@ -214,10 +260,37 @@ class FirestoreService {
         throw Exception('Claim this report before resolving it.');
       }
 
+      // Mark the report as resolved.
       transaction.update(docRef, {
         'status': 'Resolved',
         'resolvedAt': FieldValue.serverTimestamp(),
       });
+
+      // Create a notification for the original report owner.
+      if (ownerUid.isNotEmpty && ownerUid != shelterUid) {
+        final notificationRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(ownerUid)
+            .collection('notifications')
+            .doc();
+
+        final displayPetName = petName.trim().isNotEmpty
+            ? petName.trim()
+            : 'your pet';
+
+        transaction.set(notificationRef, {
+          'category': 'Alerts',
+          'title': 'Report resolved',
+          'body':
+              'Your report about $displayPetName has been marked as resolved.',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'route': '/report-detail/$reportId',
+          'action': 'View report',
+          'tags': category.trim().isNotEmpty ? [category] : [],
+          'tagColors': category.trim().isNotEmpty ? ['green'] : [],
+        });
+      }
     });
   }
 

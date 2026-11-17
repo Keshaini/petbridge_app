@@ -24,6 +24,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
+  bool _isVolunteer = false;
+  bool _isFoster = false;
 
   String? _photoUrl;
 
@@ -77,6 +79,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _phoneController.text = data['phone']?.toString() ?? '';
         _locationController.text = data['location']?.toString() ?? '';
         _photoUrl = data['photoUrl']?.toString();
+
+        _isVolunteer = data['isVolunteer'] == true;
+        _isFoster = data['isFoster'] == true;
       }
 
       setState(() => _isLoading = false);
@@ -143,6 +148,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
         'location': _locationController.text.trim(),
+        'isVolunteer': _isVolunteer,
+        'isFoster': _isFoster,
         if (_photoUrl != null) 'photoUrl': _photoUrl,
       }, SetOptions(merge: true));
 
@@ -522,16 +529,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         color: _peachColor,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.pets_rounded, color: _brown, size: 20),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          const Row(
+            children: [
+              Icon(
+                Icons.pets_rounded,
+                color: _brown,
+                size: 20,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
                   'Volunteer & Foster Status',
                   style: TextStyle(
                     fontSize: 12.5,
@@ -539,18 +549,74 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     color: _textColor,
                   ),
                 ),
-                SizedBox(height: 3),
-                Text(
-                  'Your volunteer status appears on your profile and is '
-                  'visible to shelters you connect with.',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    height: 1.45,
-                    color: _mutedColor,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          const Text(
+            'Choose how you would like to help animals. '
+            'These preferences are visible to shelters you connect with.',
+            style: TextStyle(
+              fontSize: 11.5,
+              height: 1.45,
+              color: _mutedColor,
             ),
+          ),
+
+          const SizedBox(height: 8),
+
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Volunteer',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _textColor,
+              ),
+            ),
+            subtitle: const Text(
+              'Help with animal rescue and community activities',
+              style: TextStyle(
+                fontSize: 10.5,
+                color: _mutedColor,
+              ),
+            ),
+            value: _isVolunteer,
+            activeThumbColor: _brown,
+            onChanged: (value) {
+              setState(() {
+                _isVolunteer = value;
+              });
+            },
+          ),
+
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Foster',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _textColor,
+              ),
+            ),
+            subtitle: const Text(
+              'Temporarily care for an animal in need',
+              style: TextStyle(
+                fontSize: 10.5,
+                color: _mutedColor,
+              ),
+            ),
+            value: _isFoster,
+            activeThumbColor: _brown,
+            onChanged: (value) {
+              setState(() {
+                _isFoster = value;
+              });
+            },
           ),
         ],
       ),
